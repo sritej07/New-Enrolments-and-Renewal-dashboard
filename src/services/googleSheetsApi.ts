@@ -13,7 +13,7 @@ export class GoogleSheetsService {
     this.sheetId = SHEET_ID || '';
   }
 
-  async fetchSheetData(range: string = 'Sheet1!A:Z'): Promise<any[][]> {
+  async fetchSheetData(range: string = `${import.meta.env.VITE_SHEET_NAME}!A:V`): Promise<any[][]> {
     try {
       const url = `https://sheets.googleapis.com/v4/spreadsheets/${this.sheetId}/values/${range}?key=${this.apiKey}`;
       const response = await axios.get(url);
@@ -28,62 +28,78 @@ export class GoogleSheetsService {
     if (rawData.length < 2) return [];
 
     const headers = rawData[0];
-    const students: Student[] = [];
+    const studentMap: Map<string, Student> = new Map();
 
     for (let i = 1; i < rawData.length; i++) {
       const row = rawData[i];
-      
-      // Check if row is strike-off (all columns have strike-through formatting)
-      const isStrikeOff = this.isRowStrikeOff(row);
-      
-      try {
-        const student: Student = {
-          id: row[0] || `student-${i}`,
-          name: row[1] || 'Unknown',
-          email: row[2] || undefined,
-          phone: row[3] || undefined,
-          activities: this.parseActivities(row[4] || ''),
-          enrollmentDate: this.parseDate(row[5]),
-          lastRenewalDate: row[6] ? this.parseDate(row[6]) : undefined,
-          isActive: !isStrikeOff && (row[7]?.toLowerCase() !== 'inactive'),
-          isStrikeOff,
-          fees: row[8] ? parseFloat(row[8]) : undefined,
-          notes: row[9] || undefined
-        };
+      if (!row || row.length === 0) continue;
 
-        students.push(student);
-      } catch (error) {
-        console.warn(`Error parsing student data for row ${i}:`, error);
+      const studentId = row[20] || `student-${i}`;
+      const startDate = this.parseDate(row[7]);
+      const isStrikeOff = this.isRowStrikeOff(row);
+
+      if (!studentMap.has(studentId)) {
+        studentMap.set(studentId, {
+          id: studentId,
+          name: row[2] || 'Unknown',
+          email: row[1] || undefined,
+          phone: row[4] || undefined,
+          activities: this.parseActivities(row[6] || ''),
+          enrollmentDate: startDate, // earliest start date
+          lastRenewalDate: undefined,
+          isActive: !isStrikeOff,
+          isStrikeOff,
+          fees: row[9] ? parseFloat(row[9]) : undefined,
+          notes: row[19] || undefined,
+        });
+      } else {
+        // For duplicate rows = renewal
+        const existing = studentMap.get(studentId)!;
+        if (!existing.enrollmentDate || startDate < existing.enrollmentDate) {
+          existing.enrollmentDate = startDate;
+        } else {
+          // any later start dates treated as renewals
+          if (!existing.lastRenewalDate || startDate > existing.lastRenewalDate) {
+            existing.lastRenewalDate = startDate;
+          }
+        }
+
+        // Merge activities if new ones appear
+        const newActivities = this.parseActivities(row[6] || '');
+        existing.activities = Array.from(new Set([...existing.activities, ...newActivities]));
+
+        // Strike-off overrides active flag
+        if (isStrikeOff) {
+          existing.isStrikeOff = true;
+          existing.isActive = false;
+        }
       }
     }
 
-    return students;
+    return Array.from(studentMap.values());
   }
 
   private isRowStrikeOff(row: any[]): boolean {
-    // In practice, you'd need to check the cell formatting
-    // For now, we'll check if key fields are empty or contain strike indicators
-    const keyFields = [row[1], row[4], row[5]]; // name, activities, enrollment date
-    return keyFields.every(field => !field || field.toString().includes('~~'));
-  }
+  const marker = row[21]?.toString().trim().toUpperCase(); // Column V
+  return marker === 'STRIKE';
+}
+
 
   private parseActivities(activitiesStr: string): string[] {
     if (!activitiesStr) return [];
-    return activitiesStr.split(',').map(activity => activity.trim()).filter(Boolean);
+    return activitiesStr.split(',').map(a => a.trim()).filter(Boolean);
   }
 
   private parseDate(dateStr: string): Date {
-    if (!dateStr) return new Date();
-    
-    // Handle various date formats
+    if (!dateStr) return undefined as any;
+
     const parsedDate = new Date(dateStr);
     if (isNaN(parsedDate.getTime())) {
-      // Try different parsing approaches
       const parts = dateStr.split(/[-\/]/);
       if (parts.length >= 3) {
         return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
       }
-      return new Date();
+      return undefined as any;
     }
     return parsedDate;
   }

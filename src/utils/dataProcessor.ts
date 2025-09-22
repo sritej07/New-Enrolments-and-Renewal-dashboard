@@ -3,26 +3,33 @@ import { Student, EnrollmentData, ActivityData, DashboardMetrics } from '../type
 
 export class DataProcessor {
   static calculateDashboardMetrics(students: Student[]): DashboardMetrics {
-    const activeStudents = students.filter(s => s.isActive);
-    const threeYearsAgo = subYears(new Date(), 3);
-    const recentStudents = students.filter(s => s.enrollmentDate >= threeYearsAgo);
-    
-    const studentsWithRenewals = activeStudents.filter(s => s.lastRenewalDate);
-    const renewalRate = activeStudents.length > 0 ? (studentsWithRenewals.length / activeStudents.length) * 100 : 0;
-    
-    const multiActivityStudents = activeStudents.filter(s => s.activities.length > 1);
-    const dropOffStudents = students.filter(s => s.isStrikeOff);
-    const dropOffRate = students.length > 0 ? (dropOffStudents.length / students.length) * 100 : 0;
+  // const activeStudents = students.filter(s => s.isActive);
+  const threeYearsAgo = subYears(new Date(), 3);
+  const recentStudents = students.filter(s => s.enrollmentDate >= threeYearsAgo);
 
-    return {
-      totalActiveStudents: activeStudents.length,
-      totalNewEnrollments: recentStudents.length,
-      totalRenewals: studentsWithRenewals.length,
-      overallRenewalRate: Math.round(renewalRate * 100) / 100,
-      dropOffRate: Math.round(dropOffRate * 100) / 100,
-      multiActivityStudents: multiActivityStudents.length
-    };
-  }
+  // Students eligible for renewal = enrolled before today - renewal cycle (say 1 year)
+  const eligibleForRenewal = recentStudents.filter(s => s.enrollmentDate < subYears(new Date(), 1));
+  const renewedStudents = eligibleForRenewal.filter(s => s.lastRenewalDate);
+
+  const renewalRate = eligibleForRenewal.length > 0 
+    ? (renewedStudents.length / eligibleForRenewal.length) * 100 
+    : 0;
+
+  const multiActivityStudents = recentStudents.filter(s => s.activities.length > 1);
+  const dropOffStudents = students.filter(s => s.isStrikeOff);
+  console.log(dropOffStudents.length, students.length);
+  const dropOffRate = students.length > 0 ? (dropOffStudents.length / students.length) * 100 : 0;
+
+  return {
+    // totalActiveStudents: activeStudents.length,
+    totalNewEnrollments: recentStudents.length,
+    totalRenewals: renewedStudents.length,
+    overallRenewalRate: Math.round(renewalRate * 100) / 100,
+    dropOffRate: Math.round(dropOffRate * 100) / 100,
+    multiActivityStudents: multiActivityStudents.length,
+  };
+}
+
 
   static getMonthlyEnrollments(students: Student[], months: number = 36): EnrollmentData[] {
     const endDate = new Date();

@@ -27,7 +27,7 @@ export interface ActivityData {
 }
 
 export interface DashboardMetrics {
-  totalActiveStudents: number;
+  // totalActiveStudents: number;
   totalNewEnrollments: number;
   totalRenewals: number;
   overallRenewalRate: number;

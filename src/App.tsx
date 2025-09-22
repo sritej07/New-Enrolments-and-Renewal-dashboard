@@ -88,7 +88,7 @@ function App() {
       datasets: [
         {
           data: [
-            metrics.totalActiveStudents - metrics.multiActivityStudents,
+            metrics.totalNewEnrollments - metrics.multiActivityStudents,
             metrics.multiActivityStudents
           ],
           backgroundColor: ['#94a3b8', '#3b82f6'],
@@ -166,12 +166,7 @@ function App() {
 
         {/* Metrics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">
-          <MetricCard
-            title="Active Students"
-            value={metrics.totalActiveStudents.toLocaleString()}
-            icon={Users}
-            iconColor="text-blue-600"
-          />
+          
           <MetricCard
             title="New Enrollments"
             value={metrics.totalNewEnrollments.toLocaleString()}
