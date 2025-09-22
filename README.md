@@ -1,7 +1,3 @@
-# WARP.md
-
-This file provides guidance to WARP (warp.dev) when working with code in this repository.
-
 ## Project Overview
 
 This is a React-based Student Enrollment Dashboard that analyzes student enrollment data, renewals, and activity tracking using Google Sheets as the data source. The dashboard provides comprehensive analytics including enrollment trends, renewal rates, drop-off analysis, and multi-activity student tracking.
@@ -213,7 +209,3 @@ Students are marked as dropped when:
 - Uses React's built-in state management with custom hooks
 - No external state management library (Redux, Zustand) required
 - Data fetching isolated in custom hook for reusability
-
-## Demo Mode
-
-The dashboard includes mock data generation when Google Sheets API is not configured, allowing development and testing without external dependencies.
