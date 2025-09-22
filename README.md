@@ -175,17 +175,28 @@ The core data model revolves around the `Student` interface:
 ## Data Source Requirements
 
 ### Google Sheets Format
-Expected columns (in order):
-- A: Student ID
-- B: Student Name  
-- C: Email
-- D: Phone
-- E: Activities (comma-separated)
-- F: Enrollment Date
-- G: Last Renewal Date
-- H: Status (Active/Inactive)
-- I: Fees
-- J: Notes
+Timestamp: 2/24/2024 20:32:00
+Email Address: krisram0319@gmail.com
+Student Name: Krishna Ramaswamy
+Country Code: 91
+WhatsApp Phone Number: 9892780582
+Package: 1 class per week - 12 weeks (12 classes)
+Activity: Carnatic Vocal Level 2
+Start Date: 6/15/2024
+Specify your Class Schedule: Saturday 7 pm
+Fees Paid Amount: $5,000.00
+Fees Remaining Amount: $0.00
+Fees Remaining Date:
+Instagram Link:
+Comments if any (optional):
+Consent: I have read and I agree to the terms of use
+Days: 83
+End Date: 06-Sep-24
+Due Date: NA
+Leave Days:
+Internal Note: fees paid
+Student ID: KD24CVINHYDKP010005
+StrikeHelper: STRIKE
 
 ### Strike-off Detection
 Students are marked as dropped when:
