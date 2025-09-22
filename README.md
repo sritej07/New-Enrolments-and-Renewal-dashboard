@@ -1,140 +1,219 @@
-# Student Enrollment Dashboard
+# WARP.md
 
-A comprehensive React dashboard for analyzing student enrollment data, renewals, and activity tracking using Google Sheets as the data source.
+This file provides guidance to WARP (warp.dev) when working with code in this repository.
 
-## Features
+## Project Overview
 
-- **Real-time Data**: Connects to Google Sheets API for live data updates
-- **Comprehensive Analytics**: 
-  - Monthly enrollment trends
-  - Activity-based enrollment analysis
-  - Multi-activity student tracking
-  - Renewal rate calculations
-  - Drop-off rate analysis
-- **Interactive Visualizations**: Line charts, bar charts, and doughnut charts
-- **Responsive Design**: Optimized for all device sizes
-- **Customizable Time Periods**: Quarter, year, or custom date ranges
-- **Strike-off Detection**: Automatically identifies inactive students
+This is a React-based Student Enrollment Dashboard that analyzes student enrollment data, renewals, and activity tracking using Google Sheets as the data source. The dashboard provides comprehensive analytics including enrollment trends, renewal rates, drop-off analysis, and multi-activity student tracking.
 
-## Setup Instructions
+## Development Commands
 
-### 1. Google Sheets API Setup
+### Essential Commands
+- `npm install` - Install all dependencies
+- `npm run dev` - Start development server (Vite)
+- `npm run build` - Build for production
+- `npm run lint` - Run ESLint on the codebase
+- `npm run preview` - Preview production build locally
 
-1. Go to the [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select an existing one
-3. Enable the Google Sheets API
-4. Create credentials (API Key)
-5. Copy the API key
+### Development Environment Setup
+1. Copy environment variables:
+   - Create `.env` file in project root
+   - Add required variables:
+     ```
+     VITE_GOOGLE_SHEETS_API_KEY=your_api_key_here
+     VITE_GOOGLE_SHEET_ID=your_sheet_id_here
+     VITE_SHEET_NAME=Sheet1
+     ```
 
-### 2. Prepare Your Google Sheet
+2. Google Sheets API Setup:
+   - Enable Google Sheets API in Google Cloud Console
+   - Create API key credentials
+   - Ensure sheet is publicly readable or properly shared
 
-Your Google Sheet should have the following columns (in order):
-- Column A: Student ID
-- Column B: Student Name
-- Column C: Email
-- Column D: Phone
-- Column E: Activities (comma-separated)
-- Column F: Enrollment Date
-- Column G: Last Renewal Date
-- Column H: Status (Active/Inactive)
-- Column I: Fees
-- Column J: Notes
+## Architecture Overview
 
-### 3. Environment Configuration
+### Tech Stack
+- **Frontend**: React 18 with TypeScript
+- **Build Tool**: Vite
+- **Styling**: Tailwind CSS
+- **Charts**: Chart.js with react-chartjs-2
+- **Data Processing**: Custom utility classes
+- **API Integration**: Axios for Google Sheets API
+- **Icons**: Lucide React
+- **Date Handling**: date-fns
 
-1. Copy `.env.example` to `.env`
-2. Fill in your Google Sheets API key and Sheet ID:
-   ```
-   VITE_GOOGLE_SHEETS_API_KEY=your_api_key_here
-   VITE_GOOGLE_SHEET_ID=your_sheet_id_here
-   ```
+### Key Architecture Patterns
 
-### 4. Installation and Running
+#### Data Flow
+1. **Data Source**: Google Sheets API via `googleSheetsService`
+2. **Data Processing**: `DataProcessor` utility class transforms raw data into metrics
+3. **State Management**: Custom React hook `useStudentData` manages fetching and caching
+4. **UI Layer**: Component-based architecture with reusable chart components
 
-```bash
-# Install dependencies
-npm install
+#### Core Components Architecture
+- **App.tsx**: Main dashboard orchestrator, handles data aggregation and chart configuration
+- **DataProcessor**: Static utility class for all analytics calculations
+- **GoogleSheetsService**: Handles API communication and data parsing
+- **useStudentData**: Custom hook managing data fetching, loading states, and error handling
 
-# Start development server
-npm run dev
-
-# Build for production
-npm run build
+#### Component Structure
+```
+src/
+├── components/           # Reusable UI components
+│   ├── charts/          # Chart-specific components (Line, Bar, Doughnut)
+│   ├── MetricCard.tsx   # KPI display component
+│   ├── FilterPanel.tsx  # Time period filtering
+│   └── ActivityTable.tsx # Activity data tables
+├── hooks/               # Custom React hooks
+├── services/            # External API services
+├── types/              # TypeScript interfaces
+└── utils/              # Business logic utilities
 ```
 
-## Data Format
+### Data Model
 
-The dashboard expects data in the following format:
+#### Student Interface
+The core data model revolves around the `Student` interface:
+- Supports multiple activities per student
+- Tracks enrollment and renewal dates
+- Handles active/inactive status and strike-off detection
+- Flexible fields for fees and notes
 
-| Student ID | Name | Email | Phone | Activities | Enrollment Date | Last Renewal | Status | Fees | Notes |
-|------------|------|-------|-------|------------|-----------------|--------------|--------|------|-------|
-| STU001 | John Doe | john@email.com | +1-555-0123 | Swimming,Piano | 2023-01-15 | 2023-07-15 | Active | 250 | VIP |
+#### Key Metrics Calculated
+- Active student count and new enrollments (last 3 years)
+- Renewal rates with configurable time periods (quarter/year/custom)
+- Drop-off rate analysis
+- Multi-activity student tracking
+- Activity-specific enrollment and renewal metrics
+# Drop-off and Renewal Rate Calculation
+
+## Renewal Rate
+
+### Logic
+
+-   A student is considered **renewed** if they have:
+    -   More than one enrollment record, OR
+    -   A valid `lastRenewalDate` that is later than the
+        `enrollmentDate`.
+
+### Formula
+
+\`\`\` Renewal Rate (%) = (Renewed Students ÷ Total Students) × 100
+\`\`\`
+
+### Example
+
+-   Total students: 100\
+-   Renewed students: 60
+
+\`\`\` Renewal Rate = (60 ÷ 100) × 100 = 60% \`\`\`
+
+------------------------------------------------------------------------
+
+## Drop-off Rate
+
+### Logic
+
+-   A student is considered **dropped** if their latest row in Google
+    Sheets has column **V** marked as `STRIKE`.
+-   Drop-offs are attributed to the month of their **last renewal** (or
+    enrollment if no renewal).
+
+### Formula (Overall)
+
+\`\`\` Drop-off Rate (%) = (Dropped Students ÷ Total Students) × 100
+\`\`\`
+
+### Formula (Activity-wise)
+
+\`\`\` Drop Rate (%) = (Dropped in Activity ÷ Enrolled in Activity) ×
+100 \`\`\`
+
+### Example (Overall)
+
+-   Total students: 100\
+-   Dropped students: 20
+
+\`\`\` Drop-off Rate = (20 ÷ 100) × 100 = 20% \`\`\`
+
+### Example (Activity-wise)
+
+-   Enrolled in Dance: 50\
+-   Dropped in Dance: 10
+
+\`\`\` Drop Rate (Dance) = (10 ÷ 50) × 100 = 20% \`\`\`
+
+
+### Data Processing Logic
+
+#### Monthly Trend Analysis
+- Generates time-series data for configurable periods
+- Tracks new enrollments, renewals, and drop-offs by month
+- Uses date-fns for robust date calculations
+
+#### Activity Analytics
+- Processes student activities (comma-separated in sheets)
+- Calculates enrollment counts, renewal rates, and drop-off rates per activity
+- Identifies top-performing and high-risk activities
+
+#### Renewal Rate Calculations
+- Supports multiple time period filters (quarter, year, custom months)
+- Calculates rates based on students enrolled before period start
+- Provides both overall and period-specific renewal metrics
+
+## Important Configuration Files
+
+### Vite Configuration (`vite.config.ts`)
+- Optimizes lucide-react by excluding from pre-bundling
+- Uses standard React plugin setup
+
+### ESLint Configuration (`eslint.config.js`)
+- TypeScript ESLint configuration with React-specific rules
+- Includes React Hooks and React Refresh plugins
+- Ignores `dist` directory
+
+### Tailwind Configuration (`tailwind.config.js`)
+- Standard Tailwind setup scanning HTML and React files
+- No custom theme extensions currently
+
+## Data Source Requirements
+
+### Google Sheets Format
+Expected columns (in order):
+- A: Student ID
+- B: Student Name  
+- C: Email
+- D: Phone
+- E: Activities (comma-separated)
+- F: Enrollment Date
+- G: Last Renewal Date
+- H: Status (Active/Inactive)
+- I: Fees
+- J: Notes
 
 ### Strike-off Detection
-
-Students are considered inactive/dropped when:
-- The row has strike-through formatting (detected in processing)
+Students are marked as dropped when:
+- Row has strike-through formatting
 - Status column shows "Inactive"
-- The `isStrikeOff` flag is set to true
+- Key fields are empty or contain strike indicators (`~~`)
 
-## Dashboard Metrics
+## Development Notes
 
-### Key Performance Indicators
-- **Active Students**: Current number of active students
-- **New Enrollments**: Students enrolled in the last 3 years
-- **Total Renewals**: Number of students who have renewed
-- **Renewal Rate**: Percentage of students who renewed in the selected period
-- **Drop-off Rate**: Percentage of students who became inactive
-- **Multi-Activity Students**: Students enrolled in multiple activities
+### Error Handling Strategy
+- Graceful fallback to demo data when API fails
+- Comprehensive error logging for data parsing issues
+- User-friendly error messages with retry functionality
 
-### Visualizations
-- **Monthly Trends**: Line chart showing enrollments, renewals, and drop-offs over time
-- **Activity Analysis**: Bar chart comparing enrollments and renewals by activity
-- **Activity Distribution**: Doughnut chart showing single vs multi-activity students
-- **Top Activities**: Table of most popular activities
-- **High Drop-rate Activities**: Table of activities with highest attrition
+### Performance Considerations
+- Data caching in `useStudentData` hook prevents unnecessary refetches
+- Chart.js optimizations for smooth rendering
+- Memoized calculations in main App component
 
-## Customization
-
-### Adding New Metrics
-1. Update the `DashboardMetrics` interface in `src/types/Student.ts`
-2. Add calculation logic in `src/utils/dataProcessor.ts`
-3. Create a new `MetricCard` in the main App component
-
-### Modifying Data Processing
-Edit `src/services/googleSheetsApi.ts` to change how data is parsed from Google Sheets.
-
-### Styling
-The dashboard uses Tailwind CSS. Modify classes in components or update the theme in `tailwind.config.js`.
+### State Management Pattern
+- Uses React's built-in state management with custom hooks
+- No external state management library (Redux, Zustand) required
+- Data fetching isolated in custom hook for reusability
 
 ## Demo Mode
 
-The dashboard includes mock data for demonstration purposes when Google Sheets API is not configured. This allows you to see all features without setting up the API initially.
-
-## Troubleshooting
-
-### Common Issues
-
-1. **API Key Issues**: Ensure your API key has Google Sheets API enabled
-2. **Sheet Access**: Make sure your Google Sheet is publicly readable or properly shared
-3. **Data Format**: Check that your sheet follows the expected column structure
-4. **CORS Issues**: The Google Sheets API should handle CORS automatically
-
-### Error Handling
-
-The dashboard includes comprehensive error handling:
-- Network errors fall back to demo data
-- Invalid data is logged with warnings
-- User-friendly error messages guide troubleshooting
-
-## Performance
-
-- Data is cached and only refetched when explicitly requested
-- Charts are optimized with Chart.js for smooth rendering
-- Responsive design ensures good performance on mobile devices
-
-## Security
-
-- API keys are stored in environment variables
-- No sensitive data is processed client-side beyond what's in the sheet
-- All API calls are made over HTTPS
+The dashboard includes mock data generation when Google Sheets API is not configured, allowing development and testing without external dependencies.
