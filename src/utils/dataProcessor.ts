@@ -1,5 +1,7 @@
-import { format, startOfMonth, endOfMonth, isWithinInterval, subMonths, subYears } from 'date-fns';
+import { format, startOfMonth, endOfMonth, isWithinInterval, subMonths, subYears,addYears ,addMonths} from 'date-fns';
 import { Student, EnrollmentData, ActivityData, DashboardMetrics } from '../types/Student';
+
+
 
 export class DataProcessor {
   static calculateDashboardMetrics(students: Student[]): DashboardMetrics {
@@ -132,31 +134,50 @@ export class DataProcessor {
       .slice(0, limit);
   }
 
-  static getRenewalRateByPeriod(students: Student[], period: 'quarter' | 'year' | 'custom', customMonths?: number): number {
-    const now = new Date();
-    let periodStart: Date;
-    
-    switch (period) {
-      case 'quarter':
-        periodStart = subMonths(now, 3);
-        break;
-      case 'year':
-        periodStart = subYears(now, 1);
-        break;
-      case 'custom':
-        periodStart = subMonths(now, customMonths || 6);
-        break;
-    }
+  static getRenewalRateByPeriod(
+  students: Student[],
+  period: 'quarter' | 'year' | 'custom',
+  customMonths?: number
+): number {
+  const now = new Date();
+  let periodStart: Date;
 
-    const studentsInPeriod = students.filter(s => 
-      s.enrollmentDate <= periodStart && s.isActive
-    );
-    
-    const renewedStudents = studentsInPeriod.filter(s => 
-      s.lastRenewalDate && s.lastRenewalDate >= periodStart
-    );
-
-    return studentsInPeriod.length > 0 ? 
-      Math.round((renewedStudents.length / studentsInPeriod.length) * 100 * 100) / 100 : 0;
+  switch (period) {
+    case 'quarter':
+      periodStart = subMonths(now, 3);
+      break;
+    case 'year':
+      periodStart = subYears(now, 1);
+      break;
+    case 'custom':
+      periodStart = subMonths(now, customMonths || 6);
+      break;
   }
+
+  // Period window
+  const periodEnd = now;
+
+  // Students whose renewal was due in this period
+  const dueThisPeriod = students.filter(s => {
+    if (!s.enrollmentDate) return false;
+
+    // Renewal due date = last renewal + 1 month, or enrollment + 1 month
+    const baseDate = s.lastRenewalDate || s.enrollmentDate;
+    const dueDate = addMonths(baseDate, 1);
+
+    return dueDate >= periodStart && dueDate <= periodEnd && s.isActive;
+  });
+
+  // Of those, how many actually renewed in this period
+  const renewedThisPeriod = dueThisPeriod.filter(s =>
+    s.lastRenewalDate &&
+    s.lastRenewalDate >= periodStart &&
+    s.lastRenewalDate <= periodEnd
+  );
+
+  return dueThisPeriod.length > 0
+    ? Math.round((renewedThisPeriod.length / dueThisPeriod.length) * 100 * 100) / 100
+    : 0;
+}
+
 }
