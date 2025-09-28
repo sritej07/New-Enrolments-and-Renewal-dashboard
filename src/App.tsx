@@ -7,7 +7,8 @@ import {
   TrendingDown,
   Activity,
   BookOpen,
-  BarChart3
+  BarChart3,
+  Target
 } from 'lucide-react';
 import { useStudentData } from './hooks/useStudentData';
 import { DataProcessor } from './utils/dataProcessor';
@@ -19,11 +20,13 @@ import { FilterPanel } from './components/FilterPanel';
 import { ActivityTable } from './components/ActivityTable';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { ErrorAlert } from './components/ErrorAlert';
+import { RenewalDashboard } from './components/RenewalDashboard';
 
 function App() {
-  const { students, loading, error, refetch } = useStudentData();
+  const { students, rawStudentData, loading, error, refetch } = useStudentData();
   const [selectedPeriod, setSelectedPeriod] = useState<'quarter' | 'year' | 'custom'>('year');
   const [customMonths, setCustomMonths] = useState(12);
+  const [activeTab, setActiveTab] = useState<'enrollment' | 'renewal'>('enrollment');
 
   const dashboardData = useMemo(() => {
     if (!students.length) return null;
@@ -147,91 +150,131 @@ function App() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">
-            Student Enrollment Dashboard
-          </h1>
-          <p className="text-gray-600 mt-2">
-            Track enrollments, renewals, and student activity across all programs
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Student Analytics Dashboard
+              </h1>
+              <p className="text-gray-600 mt-2">
+                Track enrollments, renewals, and student activity across all programs
+              </p>
+            </div>
+            
+            {/* Tab Navigation */}
+            <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+              <button
+                onClick={() => setActiveTab('enrollment')}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'enrollment'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <BarChart3 size={16} />
+                <span>Enrollment</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('renewal')}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'renewal'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Target size={16} />
+                <span>Renewal Analytics</span>
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* Filters */}
-        <FilterPanel
-          selectedPeriod={selectedPeriod}
-          customMonths={customMonths}
-          onPeriodChange={setSelectedPeriod}
-          onCustomMonthsChange={setCustomMonths}
-          onRefresh={refetch}
-        />
+        {/* Tab Content */}
+        {activeTab === 'enrollment' ? (
+          <>
+            {/* Filters */}
+            <FilterPanel
+              selectedPeriod={selectedPeriod}
+              customMonths={customMonths}
+              onPeriodChange={setSelectedPeriod}
+              onCustomMonthsChange={setCustomMonths}
+              onRefresh={refetch}
+            />
 
-        {/* Metrics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">
-          
-          <MetricCard
-            title="New Enrollments"
-            value={metrics.totalNewEnrollments.toLocaleString()}
-            icon={UserPlus}
-            iconColor="text-green-600"
-          />
-          <MetricCard
-            title="Total Renewals"
-            value={metrics.totalRenewals.toLocaleString()}
-            icon={RefreshCw}
-            iconColor="text-purple-600"
-          />
-          <MetricCard
-            title="Renewal Rate"
-            value={`${renewalRate}%`}
-            icon={TrendingUp}
-            iconColor="text-indigo-600"
-          />
-          <MetricCard
-            title="Drop-off Rate"
-            value={`${metrics.dropOffRate}%`}
-            icon={TrendingDown}
-            iconColor="text-red-600"
-          />
-          <MetricCard
-            title="Multi-Activity Students"
-            value={metrics.multiActivityStudents.toLocaleString()}
-            icon={Activity}
-            iconColor="text-orange-600"
-          />
-        </div>
+            {/* Metrics Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">
+              
+              <MetricCard
+                title="New Enrollments"
+                value={metrics.totalNewEnrollments.toLocaleString()}
+                icon={UserPlus}
+                iconColor="text-green-600"
+              />
+              <MetricCard
+                title="Total Renewals"
+                value={metrics.totalRenewals.toLocaleString()}
+                icon={RefreshCw}
+                iconColor="text-purple-600"
+              />
+              <MetricCard
+                title="Renewal Rate"
+                value={`${renewalRate}%`}
+                icon={TrendingUp}
+                iconColor="text-indigo-600"
+              />
+              <MetricCard
+                title="Drop-off Rate"
+                value={`${metrics.dropOffRate}%`}
+                icon={TrendingDown}
+                iconColor="text-red-600"
+              />
+              <MetricCard
+                title="Multi-Activity Students"
+                value={metrics.multiActivityStudents.toLocaleString()}
+                icon={Activity}
+                iconColor="text-orange-600"
+              />
+            </div>
 
-        {/* Charts Row 1 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <LineChart
-            title="Monthly Enrollment Trends"
-            data={enrollmentChartData}
-          />
-          <DoughnutChart
-            title="Students by Activity Count"
-            data={multiActivityData}
-          />
-        </div>
+            {/* Charts Row 1 */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+              <LineChart
+                title="Monthly Enrollment Trends"
+                data={enrollmentChartData}
+              />
+              <DoughnutChart
+                title="Students by Activity Count"
+                data={multiActivityData}
+              />
+            </div>
 
-        {/* Charts Row 2 */}
-        <div className="grid grid-cols-1 mb-8">
-          <BarChart
-            title="Enrollments and Renewals by Activity"
-            data={activityBarData}
-            height={350}
-          />
-        </div>
+            {/* Charts Row 2 */}
+            <div className="grid grid-cols-1 mb-8">
+              <BarChart
+                title="Enrollments and Renewals by Activity"
+                data={activityBarData}
+                height={350}
+              />
+            </div>
 
-        {/* Tables */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ActivityTable
-            title="Top Activities by Enrollment"
-            activities={topActivities}
+            {/* Tables */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <ActivityTable
+                title="Top Activities by Enrollment"
+                activities={topActivities}
+              />
+              <ActivityTable
+                title="Activities with Highest Drop Rates"
+                activities={highDropRateActivities}
+                showDropRate={true}
+              />
+            </div>
+          </>
+        ) : (
+          <RenewalDashboard
+            rawStudentData={rawStudentData}
+            onRefresh={refetch}
           />
-          <ActivityTable
-            title="Activities with Highest Drop Rates"
-            activities={highDropRateActivities}
-            showDropRate={true}
-          />
-        </div>
+        )}
 
         {/* Footer */}
         <div className="mt-12 text-center text-gray-500 text-sm">
