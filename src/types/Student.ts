@@ -5,7 +5,7 @@ export interface Student {
   phone?: string;
   activities: string[];
   enrollmentDate: Date;
-  lastRenewalDate?: Date;
+  renewalDates: Date[]; 
   isActive: boolean;
   isStrikeOff: boolean;
   fees?: number;

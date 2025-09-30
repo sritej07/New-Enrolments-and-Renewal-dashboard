@@ -6,7 +6,7 @@ export interface StudentRenewalData {
   package: string;
   activity: string;
   startDate: Date;
-  renewalDate?: Date;
+  renewalDates?: Date[];
   expirationDate: Date;
   graceEndDate: Date;
   status: 'renewed' | 'churned' | 'inGrace' | 'lifetime';

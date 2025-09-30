@@ -116,7 +116,7 @@ export const RenewalDashboard: React.FC<RenewalDashboardProps> = ({
         <RenewalKPICard
           title="Net Retention"
           percentage={renewalStats.netRetention}
-          count={renewalStats.renewed - renewalStats.churned}
+          count={renewalStats.inGrace}
           total={renewalStats.totalEligible}
           icon={Users}
           iconColor="text-blue-600"
@@ -130,7 +130,6 @@ export const RenewalDashboard: React.FC<RenewalDashboardProps> = ({
         <h3 className="font-medium text-blue-900 mb-2">Business Rules Applied</h3>
         <ul className="text-sm text-blue-800 space-y-1">
           <li>• Lifetime packages (containing "LTV") are excluded from renewal calculations</li>
-          <li>• Package duration is extracted from package name (e.g., "12 weeks" → 12 weeks)</li>
           <li>• Grace period is 45 days after package expiration</li>
           <li>• Students are considered renewed if renewal date is within grace period</li>
           <li>• Students are churned if no renewal within grace period</li>

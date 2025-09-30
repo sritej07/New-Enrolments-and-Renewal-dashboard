@@ -192,13 +192,13 @@ function App() {
         {activeTab === 'enrollment' ? (
           <>
             {/* Filters */}
-            <FilterPanel
+            {/* <FilterPanel
               selectedPeriod={selectedPeriod}
               customMonths={customMonths}
               onPeriodChange={setSelectedPeriod}
               onCustomMonthsChange={setCustomMonths}
               onRefresh={refetch}
-            />
+            /> */}
 
             {/* Metrics Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">
@@ -209,7 +209,7 @@ function App() {
                 icon={UserPlus}
                 iconColor="text-green-600"
               />
-              <MetricCard
+              {/* <MetricCard
                 title="Total Renewals"
                 value={metrics.totalRenewals.toLocaleString()}
                 icon={RefreshCw}
@@ -220,7 +220,7 @@ function App() {
                 value={`${renewalRate}%`}
                 icon={TrendingUp}
                 iconColor="text-indigo-600"
-              />
+              /> */}
               <MetricCard
                 title="Drop-off Rate"
                 value={`${metrics.dropOffRate}%`}

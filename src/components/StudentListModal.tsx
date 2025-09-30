@@ -75,7 +75,7 @@ export const StudentListModal: React.FC<StudentListModalProps> = ({
                         <Mail size={16} className="text-gray-400" />
                         <span className="text-gray-600">{student.email}</span>
                       </div>
-                      
+
                       {student.phone && (
                         <div className="flex items-center space-x-2">
                           <Phone size={16} className="text-gray-400" />
@@ -102,14 +102,14 @@ export const StudentListModal: React.FC<StudentListModalProps> = ({
                         </span>
                       </div>
 
-                      {student.renewalDate && (
-                        <div className="flex items-center space-x-2">
+                      {student.renewalDates?.map((date, idx) => (
+                        <div key={idx} className="flex items-center space-x-2">
                           <Calendar size={16} className="text-green-500" />
                           <span className="text-gray-600">
-                            Renewed: {format(student.renewalDate, 'MMM dd, yyyy')}
+                            Renewed: {format(new Date(date), 'MMM dd, yyyy')}
                           </span>
                         </div>
-                      )}
+                      ))}
                     </div>
                   </div>
                 ))}

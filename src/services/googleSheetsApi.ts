@@ -26,67 +26,62 @@ export class GoogleSheetsService {
   }
 
   parseStudentData(rawData: any[][]): Student[] {
-    if (rawData.length < 2) return [];
+  if (rawData.length < 2) return [];
 
-    const headers = rawData[0];
-    const studentMap: Map<string, Student> = new Map();
+  const headers = rawData[0];
+  const studentMap: Map<string, Student> = new Map();
 
-    for (let i = 1; i < rawData.length; i++) {
-      const row = rawData[i];
-      if (!row || row.length === 0) continue;
+  for (let i = 1; i < rawData.length; i++) {
+    const row = rawData[i];
+    if (!row || row.length === 0) continue;
 
-      const studentId = row[20] || `student-${i}`;
-      const startDate = this.parseDate(row[7]);
-      const isStrikeOff = this.isRowStrikeOff(row);
+    const studentId = row[20] || `student-${i}`;
+    const startDate = this.parseDate(row[7]);
+    const isStrikeOff = this.isRowStrikeOff(row);
+    const activities = this.parseActivities(row[6] || '');
 
-      if (!studentMap.has(studentId)) {
-        studentMap.set(studentId, {
-          id: studentId,
-          name: row[2] || 'Unknown',
-          email: row[1] || undefined,
-          phone: row[4] || undefined,
-          activities: this.parseActivities(row[6] || ''),
-          enrollmentDate: startDate, // earliest start date
-          lastRenewalDate: undefined,
-          isActive: !isStrikeOff,
-          isStrikeOff,
-          fees: row[9] ? parseFloat(row[9]) : undefined,
-          notes: row[19] || undefined,
-          package: row[5] || undefined,
-        });
-      } else {
-        // For duplicate rows = renewal
-        const existing = studentMap.get(studentId)!;
-        if (!existing.enrollmentDate || startDate < existing.enrollmentDate) {
-          existing.enrollmentDate = startDate;
-        } else {
-          // any later start dates treated as renewals
-          if (!existing.lastRenewalDate || startDate > existing.lastRenewalDate) {
-            existing.lastRenewalDate = startDate;
-          }
-        }
+    if (!studentMap.has(studentId)) {
+      studentMap.set(studentId, {
+        id: studentId,
+        name: row[2] || 'Unknown',
+        email: row[1] || undefined,
+        phone: row[4] || undefined,
+        activities: activities.length > 0 ? activities : [], // init with parsed activities
+        enrollmentDate: startDate,
+        renewalDates: [],
+        isActive: !isStrikeOff,
+        isStrikeOff,
+        fees: row[9] ? parseFloat(row[9]) : undefined,
+        notes: row[19] || undefined,
+        package: row[5] || undefined,
+      });
+    } else {
+      const existing = studentMap.get(studentId)!;
 
-        // Merge activities if new ones appear
-        const newActivities = this.parseActivities(row[6] || '');
-        existing.activities = Array.from(new Set([...existing.activities, ...newActivities]));
+      // collect renewal dates
+      if (startDate > existing.enrollmentDate) {
+        existing.renewalDates.push(startDate);
+      }
 
-        // Strike-off overrides active flag
-        if (isStrikeOff) {
-          existing.isStrikeOff = true;
-          existing.isActive = false;
+      // merge new activities (avoid duplicates)
+      for (const act of activities) {
+        if (!existing.activities.includes(act)) {
+          existing.activities.push(act);
         }
       }
     }
-
-    return Array.from(studentMap.values());
   }
 
- 
+  return Array.from(studentMap.values());
+}
+
+
+
 
   private isRowStrikeOff(row: any[]): boolean {
-  const marker = row[21]?.toString().trim().toUpperCase(); // Column V
-  return marker === 'STRIKE';
-}
+    const marker = row[21]?.toString().trim().toUpperCase(); // Column V
+    return marker === 'STRIKE';
+  }
 
 
   private parseActivities(activitiesStr: string): string[] {
