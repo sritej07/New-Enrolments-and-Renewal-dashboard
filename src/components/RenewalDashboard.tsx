@@ -3,15 +3,16 @@ import { RefreshCw, TrendingUp, TrendingDown, Users } from 'lucide-react';
 import { RenewalKPICard } from './RenewalKPICard';
 import { StudentListModal } from './StudentListModal';
 import { calculateRenewalStats, parseStudentRenewalData } from '../utils/renewalCalculations';
-import { RawStudentData, StudentRenewalData } from '../types/RenewalTypes';
+import { StudentRenewalData } from '../types/RenewalTypes';
+import { Student } from '../types/Student';
 
 interface RenewalDashboardProps {
-  rawStudentData: RawStudentData[];
+  StudentData: Student[];
   onRefresh?: () => void;
 }
 
 export const RenewalDashboard: React.FC<RenewalDashboardProps> = ({
-  rawStudentData,
+  StudentData,
   onRefresh
 }) => {
   const [modalState, setModalState] = useState<{
@@ -25,9 +26,9 @@ export const RenewalDashboard: React.FC<RenewalDashboardProps> = ({
   });
 
   const renewalStats = useMemo(() => {
-    const parsedData = parseStudentRenewalData(rawStudentData);
+    const parsedData = parseStudentRenewalData(StudentData);
     return calculateRenewalStats(parsedData);
-  }, [rawStudentData]);
+  }, [StudentData]);
 
   const openModal = (title: string, students: StudentRenewalData[]) => {
     setModalState({

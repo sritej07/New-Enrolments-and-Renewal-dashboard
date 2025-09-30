@@ -23,7 +23,7 @@ import { ErrorAlert } from './components/ErrorAlert';
 import { RenewalDashboard } from './components/RenewalDashboard';
 
 function App() {
-  const { students, rawStudentData, loading, error, refetch } = useStudentData();
+  const { students, loading, error, refetch } = useStudentData();
   const [selectedPeriod, setSelectedPeriod] = useState<'quarter' | 'year' | 'custom'>('year');
   const [customMonths, setCustomMonths] = useState(12);
   const [activeTab, setActiveTab] = useState<'enrollment' | 'renewal'>('enrollment');
@@ -271,7 +271,7 @@ function App() {
           </>
         ) : (
           <RenewalDashboard
-            rawStudentData={rawStudentData}
+            StudentData={students}
             onRefresh={refetch}
           />
         )}

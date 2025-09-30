@@ -10,8 +10,8 @@ export interface StudentRenewalData {
   expirationDate: Date;
   graceEndDate: Date;
   status: 'renewed' | 'churned' | 'inGrace' | 'lifetime';
-  isLifetime: boolean;
-  packageDuration?: number; // in weeks
+  isLifetime: boolean | null;
+  packageDuration?: number | null; // in weeks
 }
 
 export interface RenewalStats {
@@ -28,28 +28,3 @@ export interface RenewalStats {
   inGraceStudents: StudentRenewalData[];
 }
 
-export interface RawStudentData {
-  timestamp: string;
-  email: string;
-  name: string;
-  countryCode: string;
-  phone: string;
-  package: string;
-  activity: string;
-  startDate: string;
-  schedule: string;
-  feesPaid: string;
-  feesRemaining: string;
-  feesRemainingDate: string;
-  instagram: string;
-  comments: string;
-  consent: string;
-  days: string;
-  endDate: string;
-  dueDate: string;
-  leaveDays: string;
-  internalNote: string;
-  studentId: string;
-  strikeHelper: string;
-  renewalDate?: string;
-}

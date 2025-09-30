@@ -1,5 +1,6 @@
 import { addWeeks, addDays, isAfter, isBefore, isEqual } from 'date-fns';
-import { StudentRenewalData, RenewalStats, RawStudentData } from '../types/RenewalTypes';
+import { StudentRenewalData, RenewalStats  } from '../types/RenewalTypes';
+import { Student } from '../types/Student';
 
 /**
  * Extracts package duration from package name
@@ -24,12 +25,12 @@ export function isLifetimePackage(packageName: string): boolean {
 /**
  * Parses raw student data and calculates renewal metrics
  */
-export function parseStudentRenewalData(rawData: RawStudentData[]): StudentRenewalData[] {
+export function parseStudentRenewalData(rawData: Student[]): StudentRenewalData[] {
   return rawData.map(student => {
-    const startDate = new Date(student.startDate);
-    const renewalDate = student.renewalDate ? new Date(student.renewalDate) : undefined;
-    const isLifetime = isLifetimePackage(student.package);
-    const packageDuration = extractPackageDuration(student.package);
+    const startDate = new Date(student.enrollmentDate);
+    const renewalDate = student.lastRenewalDate ? new Date(student.lastRenewalDate) : undefined;
+    const isLifetime = student.package ?isLifetimePackage(student.package):undefined!;
+    const packageDuration = student.package ? extractPackageDuration(student.package) : undefined;
     
     // Calculate expiration date
     let expirationDate: Date;
@@ -64,12 +65,12 @@ export function parseStudentRenewalData(rawData: RawStudentData[]): StudentRenew
     }
 
     return {
-      id: student.studentId || `student-${Math.random()}`,
-      name: student.name,
-      email: student.email,
-      phone: student.phone,
-      package: student.package,
-      activity: student.activity,
+      id: student.id || `student-${Math.random()}`,
+      name: student.name || '',
+      email: student.email||'',
+      phone: student.phone || '',
+      package: student.package ||'',
+      activity: student.activities.length > 0 ? student.activities[0] : 'Unknown',
       startDate,
       renewalDate,
       expirationDate,

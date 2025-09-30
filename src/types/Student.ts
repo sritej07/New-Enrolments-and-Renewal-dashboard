@@ -10,6 +10,7 @@ export interface Student {
   isStrikeOff: boolean;
   fees?: number;
   notes?: string;
+  package?: string;
 }
 
 export interface EnrollmentData {

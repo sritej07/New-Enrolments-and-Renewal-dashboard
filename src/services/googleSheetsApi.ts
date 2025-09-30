@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { Student } from '../types/Student';
-import { RawStudentData } from '../types/RenewalTypes';
+
 
 const GOOGLE_SHEETS_API_KEY = import.meta.env.VITE_GOOGLE_SHEETS_API_KEY;
 const SHEET_ID = import.meta.env.VITE_GOOGLE_SHEET_ID;
@@ -52,6 +52,7 @@ export class GoogleSheetsService {
           isStrikeOff,
           fees: row[9] ? parseFloat(row[9]) : undefined,
           notes: row[19] || undefined,
+          package: row[5] || undefined,
         });
       } else {
         // For duplicate rows = renewal
@@ -80,44 +81,7 @@ export class GoogleSheetsService {
     return Array.from(studentMap.values());
   }
 
-  parseRawStudentData(rawData: any[][]): RawStudentData[] {
-    if (rawData.length < 2) return [];
-
-    const students: RawStudentData[] = [];
-
-    for (let i = 1; i < rawData.length; i++) {
-      const row = rawData[i];
-      if (!row || row.length === 0) continue;
-
-      students.push({
-        timestamp: row[0] || '',
-        email: row[1] || '',
-        name: row[2] || 'Unknown',
-        countryCode: row[3] || '',
-        phone: row[4] || '',
-        package: row[5] || '',
-        activity: row[6] || '',
-        startDate: row[7] || '',
-        schedule: row[8] || '',
-        feesPaid: row[9] || '',
-        feesRemaining: row[10] || '',
-        feesRemainingDate: row[11] || '',
-        instagram: row[12] || '',
-        comments: row[13] || '',
-        consent: row[14] || '',
-        days: row[15] || '',
-        endDate: row[16] || '',
-        dueDate: row[17] || '',
-        leaveDays: row[18] || '',
-        internalNote: row[19] || '',
-        studentId: row[20] || `student-${i}`,
-        strikeHelper: row[21] || '',
-        renewalDate: row[22] || undefined // Assuming renewal date is in column 23 (index 22)
-      });
-    }
-
-    return students;
-  }
+ 
 
   private isRowStrikeOff(row: any[]): boolean {
   const marker = row[21]?.toString().trim().toUpperCase(); // Column V
