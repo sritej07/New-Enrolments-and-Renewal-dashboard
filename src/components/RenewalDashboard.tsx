@@ -5,6 +5,10 @@ import { StudentListModal } from './StudentListModal';
 import { calculateRenewalStats, parseStudentRenewalData } from '../utils/renewalCalculations';
 import { StudentRenewalData } from '../types/RenewalTypes';
 import { Student } from '../types/Student';
+import { calculateTrendStats } from '../utils/renewalCalculations';
+import { FilterPanel } from './FilterPanel';
+import { TrendChart } from './charts/TrendChart';
+
 
 interface RenewalDashboardProps {
   StudentData: Student[];
@@ -15,6 +19,15 @@ export const RenewalDashboard: React.FC<RenewalDashboardProps> = ({
   StudentData,
   onRefresh
 }) => {
+
+  const [selectedPeriod, setSelectedPeriod] = useState<'quarter' | 'year' | 'custom'>('custom');
+  const [customMonths, setCustomMonths] = useState<number>(6);
+
+  const trendStats = useMemo(() => {
+    const parsedData = parseStudentRenewalData(StudentData);
+    return calculateTrendStats(parsedData, selectedPeriod, customMonths);
+  }, [StudentData, selectedPeriod, customMonths]);
+
   const [modalState, setModalState] = useState<{
     isOpen: boolean;
     title: string;
@@ -24,6 +37,7 @@ export const RenewalDashboard: React.FC<RenewalDashboardProps> = ({
     title: '',
     students: []
   });
+
 
   const renewalStats = useMemo(() => {
     const parsedData = parseStudentRenewalData(StudentData);
@@ -124,17 +138,17 @@ export const RenewalDashboard: React.FC<RenewalDashboardProps> = ({
           onClick={() => openModal('In Grace Period', renewalStats.inGraceStudents)}
         />
       </div>
+      <FilterPanel
+        selectedPeriod={selectedPeriod}
+        customMonths={customMonths}
+        onPeriodChange={setSelectedPeriod}
+        onCustomMonthsChange={setCustomMonths}
+        onRefresh={onRefresh ?? (() => { })}
+      />
+      <TrendChart data={trendStats} />
 
       {/* Business Rules Info */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-medium text-blue-900 mb-2">Business Rules Applied</h3>
-        <ul className="text-sm text-blue-800 space-y-1">
-          <li>• Lifetime packages (containing "LTV") are excluded from renewal calculations</li>
-          <li>• Grace period is 45 days after package expiration</li>
-          <li>• Students are considered renewed if renewal date is within grace period</li>
-          <li>• Students are churned if no renewal within grace period</li>
-        </ul>
-      </div>
+      
 
       {/* Modal */}
       <StudentListModal
