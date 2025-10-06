@@ -8,6 +8,9 @@ import { Student } from '../types/Student';
 import { calculateTrendStats } from '../utils/renewalCalculations';
 import { FilterPanel } from './FilterPanel';
 import { TrendChart } from './charts/TrendChart';
+import { calculateTrendStats } from '../utils/renewalCalculations';
+import { FilterPanel } from './FilterPanel';
+import { TrendChart } from './charts/TrendChart';
 
 
 interface RenewalDashboardProps {
@@ -19,6 +22,15 @@ export const RenewalDashboard: React.FC<RenewalDashboardProps> = ({
   StudentData,
   onRefresh
 }) => {
+
+  const [selectedPeriod, setSelectedPeriod] = useState<'quarter' | 'year' | 'custom'>('custom');
+  const [customMonths, setCustomMonths] = useState<number>(6);
+
+  const trendStats = useMemo(() => {
+    const parsedData = parseStudentRenewalData(StudentData);
+    return calculateTrendStats(parsedData, selectedPeriod, customMonths);
+  }, [StudentData, selectedPeriod, customMonths]);
+
 
   const [selectedPeriod, setSelectedPeriod] = useState<'quarter' | 'year' | 'custom'>('custom');
   const [customMonths, setCustomMonths] = useState<number>(6);
@@ -80,6 +92,15 @@ export const RenewalDashboard: React.FC<RenewalDashboardProps> = ({
           </button>
         )}
       </div>
+
+      <FilterPanel
+        selectedPeriod={selectedPeriod}
+        customMonths={customMonths}
+        onPeriodChange={setSelectedPeriod}
+        onCustomMonthsChange={setCustomMonths}
+        onRefresh={onRefresh ?? (() => { })}
+      />
+      <TrendChart data={trendStats} />
 
       {/* Summary Stats */}
       <div className="bg-gray-50 rounded-lg p-4">
@@ -148,7 +169,6 @@ export const RenewalDashboard: React.FC<RenewalDashboardProps> = ({
       <TrendChart data={trendStats} />
 
       {/* Business Rules Info */}
-      
 
       {/* Modal */}
       <StudentListModal

@@ -6,12 +6,14 @@ interface ActivityTableProps {
   title: string;
   activities: ActivityData[];
   showDropRate?: boolean;
+  onActivityClick?: (activity: string) => void;
 }
 
 export const ActivityTable: React.FC<ActivityTableProps> = ({
   title,
   activities,
-  showDropRate = false
+  showDropRate = false,
+  onActivityClick
 }) => {
   return (
     <div className="bg-white rounded-lg shadow-md border border-gray-100">
@@ -33,6 +35,11 @@ export const ActivityTable: React.FC<ActivityTableProps> = ({
               </th>
               {showDropRate && (
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Active Students
+                </th>
+              )}
+              {showDropRate && (
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Drop Rate
                 </th>
               )}
@@ -40,7 +47,11 @@ export const ActivityTable: React.FC<ActivityTableProps> = ({
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {activities.map((activity, index) => (
-              <tr key={activity.activity} className="hover:bg-gray-50 transition-colors">
+              <tr 
+                key={activity.activity} 
+                className={`hover:bg-gray-50 transition-colors ${onActivityClick ? 'cursor-pointer' : ''}`}
+                onClick={() => onActivityClick?.(activity.activity)}
+              >
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
                     <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
@@ -68,6 +79,11 @@ export const ActivityTable: React.FC<ActivityTableProps> = ({
                     </div>
                   </div>
                 </td>
+                {showDropRate && (
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {activity.enrollments - Math.round((activity.dropRate / 100) * activity.enrollments)}
+                  </td>
+                )}
                 {showDropRate && (
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">

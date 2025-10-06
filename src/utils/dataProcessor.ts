@@ -4,6 +4,29 @@ import { Student, EnrollmentData, ActivityData, DashboardMetrics } from '../type
 
 
 export class DataProcessor {
+  static filterStudentsByPeriod(
+    students: Student[],
+    period: 'quarter' | 'year' | 'custom',
+    customMonths?: number
+  ): Student[] {
+    const now = new Date();
+    let periodStart: Date;
+
+    switch (period) {
+      case 'quarter':
+        periodStart = subMonths(now, 3);
+        break;
+      case 'year':
+        periodStart = subYears(now, 1);
+        break;
+      case 'custom':
+        periodStart = subMonths(now, customMonths || 6);
+        break;
+    }
+
+    return students.filter(s => s.enrollmentDate >= periodStart);
+  }
+
   static calculateDashboardMetrics(students: Student[]): DashboardMetrics {
   const threeYearsAgo = subYears(new Date(), 3);
   const recentStudents = students.filter(s => s.enrollmentDate >= threeYearsAgo);
