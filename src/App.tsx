@@ -13,6 +13,7 @@ import {
 import { useStudentData } from './hooks/useStudentData';
 import { DataProcessor } from './utils/dataProcessor';
 import { MetricCard } from './components/MetricCard';
+import { ClickableMetricCard } from './components/ClickableMetricCard';
 import { LineChart } from './components/charts/LineChart';
 import { BarChart } from './components/charts/BarChart';
 import { DoughnutChart } from './components/charts/DoughnutChart';
@@ -21,23 +22,42 @@ import { ActivityTable } from './components/ActivityTable';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { ErrorAlert } from './components/ErrorAlert';
 import { RenewalDashboard } from './components/RenewalDashboard';
+import { EnrollmentStudentModal } from './components/EnrollmentStudentModal';
+import { Student } from './types/Student';
 
 function App() {
   const { students, loading, error, refetch } = useStudentData();
   const [selectedPeriod, setSelectedPeriod] = useState<'quarter' | 'year' | 'custom'>('year');
   const [customMonths, setCustomMonths] = useState(12);
   const [activeTab, setActiveTab] = useState<'enrollment' | 'renewal'>('enrollment');
+  
+  const [enrollmentModalState, setEnrollmentModalState] = useState<{
+    isOpen: boolean;
+    title: string;
+    students: Student[];
+  }>({
+    isOpen: false,
+    title: '',
+    students: []
+  });
 
   const dashboardData = useMemo(() => {
     if (!students.length) return null;
 
-    const metrics = DataProcessor.calculateDashboardMetrics(students);
-    const monthlyData = DataProcessor.getMonthlyEnrollments(students, 12);
-    const activityData = DataProcessor.getActivityEnrollments(students);
-    const topActivities = DataProcessor.getTopActivities(students, 10);
-    const highDropRateActivities = DataProcessor.getHighestDropRateActivities(students, 5);
-    const renewalRate = DataProcessor.getRenewalRateByPeriod(
+    // Filter students based on selected period
+    const filteredStudents = DataProcessor.filterStudentsByPeriod(
       students, 
+      selectedPeriod, 
+      customMonths
+    );
+
+    const metrics = DataProcessor.calculateDashboardMetrics(filteredStudents);
+    const monthlyData = DataProcessor.getMonthlyEnrollments(filteredStudents, 12);
+    const activityData = DataProcessor.getActivityEnrollments(filteredStudents);
+    const topActivities = DataProcessor.getTopActivities(filteredStudents, 10);
+    const highDropRateActivities = DataProcessor.getHighestDropRateActivities(filteredStudents, 5);
+    const renewalRate = DataProcessor.getRenewalRateByPeriod(
+      filteredStudents, 
       selectedPeriod, 
       customMonths
     );
@@ -109,9 +129,43 @@ function App() {
       highDropRateActivities,
       enrollmentChartData,
       activityBarData,
-      multiActivityData
+      multiActivityData,
+      filteredStudents
     };
   }, [students, selectedPeriod, customMonths]);
+
+  const openEnrollmentModal = (title: string, studentList: Student[]) => {
+    setEnrollmentModalState({
+      isOpen: true,
+      title,
+      students: studentList
+    });
+  };
+
+  const closeEnrollmentModal = () => {
+    setEnrollmentModalState({
+      isOpen: false,
+      title: '',
+      students: []
+    });
+  };
+
+  const getStudentsByActivity = (activityName: string): Student[] => {
+    if (!dashboardData) return [];
+    return dashboardData.filteredStudents.filter(student => 
+      student.activities.includes(activityName)
+    );
+  };
+
+  const getDroppedStudents = (): Student[] => {
+    if (!dashboardData) return [];
+    return dashboardData.filteredStudents.filter(student => student.isStrikeOff);
+  };
+
+  const getMultiActivityStudents = (): Student[] => {
+    if (!dashboardData) return [];
+    return dashboardData.filteredStudents.filter(student => student.activities.length > 1);
+  };
 
   if (loading) {
     return <LoadingSpinner />;
@@ -140,7 +194,8 @@ function App() {
     activityBarData, 
     multiActivityData,
     topActivities,
-    highDropRateActivities
+    highDropRateActivities,
+    filteredStudents
   } = dashboardData;
 
   return (
@@ -192,46 +247,37 @@ function App() {
         {activeTab === 'enrollment' ? (
           <>
             {/* Filters */}
-            {/* <FilterPanel
+            <FilterPanel
               selectedPeriod={selectedPeriod}
               customMonths={customMonths}
               onPeriodChange={setSelectedPeriod}
               onCustomMonthsChange={setCustomMonths}
               onRefresh={refetch}
-            /> */}
+            />
 
             {/* Metrics Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">
               
-              <MetricCard
+              <ClickableMetricCard
                 title="New Enrollments"
                 value={metrics.totalNewEnrollments.toLocaleString()}
                 icon={UserPlus}
                 iconColor="text-green-600"
+                onClick={() => openEnrollmentModal('New Enrollments', filteredStudents)}
               />
-              {/* <MetricCard
-                title="Total Renewals"
-                value={metrics.totalRenewals.toLocaleString()}
-                icon={RefreshCw}
-                iconColor="text-purple-600"
-              />
-              <MetricCard
-                title="Renewal Rate"
-                value={`${renewalRate}%`}
-                icon={TrendingUp}
-                iconColor="text-indigo-600"
-              /> */}
-              <MetricCard
+              <ClickableMetricCard
                 title="Drop-off Rate"
                 value={`${metrics.dropOffRate}%`}
                 icon={TrendingDown}
                 iconColor="text-red-600"
+                onClick={() => openEnrollmentModal('Dropped Students', getDroppedStudents())}
               />
-              <MetricCard
+              <ClickableMetricCard
                 title="Multi-Activity Students"
                 value={metrics.multiActivityStudents.toLocaleString()}
                 icon={Activity}
                 iconColor="text-orange-600"
+                onClick={() => openEnrollmentModal('Multi-Activity Students', getMultiActivityStudents())}
               />
             </div>
 
@@ -261,13 +307,23 @@ function App() {
               <ActivityTable
                 title="Top Activities by Enrollment"
                 activities={topActivities}
+                onActivityClick={(activity) => openEnrollmentModal(`Students in ${activity}`, getStudentsByActivity(activity))}
               />
               <ActivityTable
                 title="Activities with Highest Drop Rates"
                 activities={highDropRateActivities}
                 showDropRate={true}
+                onActivityClick={(activity) => openEnrollmentModal(`Students in ${activity}`, getStudentsByActivity(activity))}
               />
             </div>
+
+            {/* Enrollment Modal */}
+            <EnrollmentStudentModal
+              isOpen={enrollmentModalState.isOpen}
+              onClose={closeEnrollmentModal}
+              title={enrollmentModalState.title}
+              students={enrollmentModalState.students}
+            />
           </>
         ) : (
           <RenewalDashboard
