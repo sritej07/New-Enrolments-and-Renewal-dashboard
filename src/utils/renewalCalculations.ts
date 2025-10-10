@@ -2,88 +2,88 @@ import { addWeeks, addDays, isAfter, isBefore, isEqual } from 'date-fns';
 import { StudentRenewalData, RenewalStats } from '../types/RenewalTypes';
 import { Student } from '../types/Student';
 
-interface TrendPoint {
-  period: string; // e.g. "2025-01", "Q1-2025", "2025"
-  renewalRate: number;
-  churnRate: number;
-  netRetention: number;
-}
+// interface TrendPoint {
+//   period: string; // e.g. "2025-01", "Q1-2025", "2025"
+//   renewalRate: number;
+//   churnRate: number;
+//   netRetention: number;
+// }
 
-export function calculateTrendStats(
-  parsedData: StudentRenewalData[],
-  period: 'quarter' | 'year' | 'custom',
-  customMonths: number = 6
-): TrendPoint[] {
-  const groups: Record<string, StudentRenewalData[]> = {};
-  const now = new Date();
+// export function calculateTrendStats(
+//   parsedData: StudentRenewalData[],
+//   period: 'quarter' | 'year' | 'custom',
+//   customMonths: number = 6
+// ): TrendPoint[] {
+//   const groups: Record<string, StudentRenewalData[]> = {};
+//   const now = new Date();
 
-  parsedData.forEach(student => {
-    const date = new Date(student.expirationDate);
-    if (isNaN(date.getTime()) || date > now) return; // skip invalid/future
+//   parsedData.forEach(student => {
+//     const date = new Date(student.expirationDate);
+//     if (isNaN(date.getTime()) || date > now) return; // skip invalid/future
 
-    let key = '';
-    if (period === 'year') {
-      key = `${date.getFullYear()}`;
-    } else {
-      // monthly buckets
-      key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    }
+//     let key = '';
+//     if (period === 'year') {
+//       key = `${date.getFullYear()}`;
+//     } else {
+//       // monthly buckets
+//       key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+//     }
 
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(student);
-  });
+//     if (!groups[key]) groups[key] = [];
+//     groups[key].push(student);
+//   });
 
-  let results: TrendPoint[] = [];
+//   let results: TrendPoint[] = [];
 
-  for (const [key, students] of Object.entries(groups)) {
-    const total = students.length;
-    const renewed = students.filter(s => s.status === 'renewed').length;
-    const churned = students.filter(s => s.status === 'churned').length;
+//   for (const [key, students] of Object.entries(groups)) {
+//     const total = students.length;
+//     const renewed = students.filter(s => s.status === 'renewed').length;
+//     const churned = students.filter(s => s.status === 'churned').length;
 
-    const renewalRate = total > 0 ? (renewed / total) * 100 : 0;
-    const churnRate = total > 0 ? (churned / total) * 100 : 0;
-    const netRetention = renewalRate - churnRate;
+//     const renewalRate = total > 0 ? (renewed / total) * 100 : 0;
+//     const churnRate = total > 0 ? (churned / total) * 100 : 0;
+//     const netRetention = renewalRate - churnRate;
 
-    // Format display label
-    let label = key;
-    if (period !== 'year') {
-      const [y, m] = key.split('-').map(Number);
-      const monthName = new Date(y, m - 1).toLocaleString('default', { month: 'short' });
-      label = `${monthName} ${y}`; // e.g. Jan 2025
-    }
+//     // Format display label
+//     let label = key;
+//     if (period !== 'year') {
+//       const [y, m] = key.split('-').map(Number);
+//       const monthName = new Date(y, m - 1).toLocaleString('default', { month: 'short' });
+//       label = `${monthName} ${y}`; // e.g. Jan 2025
+//     }
 
-    results.push({
-      period: label,
-      renewalRate: parseFloat(renewalRate.toFixed(1)),
-      churnRate: parseFloat(churnRate.toFixed(1)),
-      netRetention: parseFloat(netRetention.toFixed(1)),
-    });
-  }
+//     results.push({
+//       period: label,
+//       renewalRate: parseFloat(renewalRate.toFixed(1)),
+//       churnRate: parseFloat(churnRate.toFixed(1)),
+//       netRetention: parseFloat(netRetention.toFixed(1)),
+//     });
+//   }
 
-  // sort chronologically
-  results = results.sort((a, b) => {
-    const parseDate = (label: string): Date => {
-      if (period === 'year') {
-        return new Date(parseInt(label), 0, 1);
-      } else {
-        const [monthStr, yearStr] = label.split(' ');
-        return new Date(parseInt(yearStr), new Date(`${monthStr} 1, 2000`).getMonth(), 1);
-      }
-    };
-    return parseDate(a.period).getTime() - parseDate(b.period).getTime();
-  });
+//   // sort chronologically
+//   results = results.sort((a, b) => {
+//     const parseDate = (label: string): Date => {
+//       if (period === 'year') {
+//         return new Date(parseInt(label), 0, 1);
+//       } else {
+//         const [monthStr, yearStr] = label.split(' ');
+//         return new Date(parseInt(yearStr), new Date(`${monthStr} 1, 2000`).getMonth(), 1);
+//       }
+//     };
+//     return parseDate(a.period).getTime() - parseDate(b.period).getTime();
+//   });
 
-  // restrict data
-  if (period === 'quarter') {
-    results = results.slice(-3); // last 3 months
-  } else if (period === 'custom') {
-    results = results.slice(-customMonths); // last N months
-  } else if (period === 'year') {
-    results = results.slice(-3); // last 3 years
-  }
+//   // restrict data
+//   if (period === 'quarter') {
+//     results = results.slice(-3); // last 3 months
+//   } else if (period === 'custom') {
+//     results = results.slice(-customMonths); // last N months
+//   } else if (period === 'year') {
+//     results = results.slice(-3); // last 3 years
+//   }
 
-  return results;
-}
+//   return results;
+// }
 
 interface TrendPoint {
   period: string; // e.g. "2025-01", "Q1-2025", "2025"

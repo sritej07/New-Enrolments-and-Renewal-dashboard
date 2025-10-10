@@ -8,9 +8,7 @@ import { Student } from '../types/Student';
 import { calculateTrendStats } from '../utils/renewalCalculations';
 import { FilterPanel } from './FilterPanel';
 import { TrendChart } from './charts/TrendChart';
-import { calculateTrendStats } from '../utils/renewalCalculations';
-import { FilterPanel } from './FilterPanel';
-import { TrendChart } from './charts/TrendChart';
+
 
 
 interface RenewalDashboardProps {
@@ -32,13 +30,13 @@ export const RenewalDashboard: React.FC<RenewalDashboardProps> = ({
   }, [StudentData, selectedPeriod, customMonths]);
 
 
-  const [selectedPeriod, setSelectedPeriod] = useState<'quarter' | 'year' | 'custom'>('custom');
-  const [customMonths, setCustomMonths] = useState<number>(6);
+  // const [selectedPeriod, setSelectedPeriod] = useState<'quarter' | 'year' | 'custom'>('custom');
+  // const [customMonths, setCustomMonths] = useState<number>(6);
 
-  const trendStats = useMemo(() => {
-    const parsedData = parseStudentRenewalData(StudentData);
-    return calculateTrendStats(parsedData, selectedPeriod, customMonths);
-  }, [StudentData, selectedPeriod, customMonths]);
+  // const trendStats = useMemo(() => {
+  //   const parsedData = parseStudentRenewalData(StudentData);
+  //   return calculateTrendStats(parsedData, selectedPeriod, customMonths);
+  // }, [StudentData, selectedPeriod, customMonths]);
 
   const [modalState, setModalState] = useState<{
     isOpen: boolean;
@@ -100,7 +98,7 @@ export const RenewalDashboard: React.FC<RenewalDashboardProps> = ({
         onCustomMonthsChange={setCustomMonths}
         onRefresh={onRefresh ?? (() => { })}
       />
-      <TrendChart data={trendStats} />
+      
 
       {/* Summary Stats */}
       <div className="bg-gray-50 rounded-lg p-4">
@@ -159,13 +157,7 @@ export const RenewalDashboard: React.FC<RenewalDashboardProps> = ({
           onClick={() => openModal('In Grace Period', renewalStats.inGraceStudents)}
         />
       </div>
-      <FilterPanel
-        selectedPeriod={selectedPeriod}
-        customMonths={customMonths}
-        onPeriodChange={setSelectedPeriod}
-        onCustomMonthsChange={setCustomMonths}
-        onRefresh={onRefresh ?? (() => { })}
-      />
+      
       <TrendChart data={trendStats} />
 
       {/* Business Rules Info */}
