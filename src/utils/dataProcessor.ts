@@ -118,43 +118,43 @@ export class DataProcessor {
 }
 
   static getActivityEnrollments(students: Student[]): ActivityData[] {
-  const activityMap: Map<string, {
-    enrollments: number;
-    renewals: number;
-    dropOffs: number;
-  }> = new Map();
+    const activityMap: Map<string, {
+      enrollments: number;
+      renewals: number;
+      dropOffs: number;
+    }> = new Map();
 
-  students.forEach(student => {
-    student.activities.forEach(activity => {
-      if (!activityMap.has(activity)) {
-        activityMap.set(activity, { enrollments: 0, renewals: 0, dropOffs: 0 });
-      }
+    students.forEach(student => {
+      student.activities.forEach(activity => {
+        if (!activityMap.has(activity)) {
+          activityMap.set(activity, { enrollments: 0, renewals: 0, dropOffs: 0 });
+        }
 
-      const data = activityMap.get(activity)!;
-      data.enrollments++;
+        const data = activityMap.get(activity)!;
+        data.enrollments++;
 
-      // ✅ Count all renewals
-      if (student.renewalDates && student.renewalDates.length > 0) {
-        data.renewals += student.renewalDates.length;
-      }
+        // ✅ Count all renewals
+        if (student.renewalDates && student.renewalDates.length > 0) {
+          data.renewals += student.renewalDates.length;
+        }
 
-      if (student.isStrikeOff) {
-        data.dropOffs++;
-      }
+        if (student.isStrikeOff) {
+          data.dropOffs++;
+        }
+      });
     });
-  });
 
-  return Array.from(activityMap.entries())
-    .map(([activity, data]) => ({
-      activity,
-      enrollments: data.enrollments,
-      renewals: data.renewals,
-      dropRate: data.enrollments > 0 
-        ? Math.round((data.dropOffs / data.enrollments) * 100 * 100) / 100 
-        : 0
-    }))
-    .sort((a, b) => b.enrollments - a.enrollments);
-}
+    return Array.from(activityMap.entries())
+      .map(([activity, data]) => ({
+        activity,
+        enrollments: data.enrollments,
+        renewals: data.renewals,
+        dropRate: data.enrollments > 0 
+          ? Math.round((data.dropOffs / data.enrollments) * 100 * 100) / 100 
+          : 0
+      }))
+      .sort((a, b) => b.enrollments - a.enrollments);
+  }
 
 
   static getTopActivities(students: Student[], limit: number = 5): ActivityData[] {
