@@ -37,6 +37,7 @@ export class GoogleSheetsService {
 
     const studentId = row[20] || `student-${i}`;
     const startDate = this.parseDate(row[7]);
+    const endDate = this.parseDate(row[16]); // End Date column
     const isStrikeOff = this.isRowStrikeOff(row);
     const activities = this.parseActivities(row[6] || '');
 
@@ -48,6 +49,7 @@ export class GoogleSheetsService {
         phone: row[4] || undefined,
         activities: activities.length > 0 ? activities : [], // init with parsed activities
         enrollmentDate: startDate,
+        endDate: endDate,
         renewalDates: [],
         isActive: !isStrikeOff,
         isStrikeOff,
@@ -61,6 +63,11 @@ export class GoogleSheetsService {
       // collect renewal dates
       if (startDate > existing.enrollmentDate) {
         existing.renewalDates.push(startDate);
+      }
+
+      // update end date if newer
+      if (endDate && (!existing.endDate || endDate > existing.endDate)) {
+        existing.endDate = endDate;
       }
 
       // merge new activities (avoid duplicates)

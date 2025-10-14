@@ -6,6 +6,7 @@ interface ActivityTableProps {
   title: string;
   activities: ActivityData[];
   showDropRate?: boolean;
+  showActiveStudents?: boolean;
   onActivityClick?: (activity: string) => void;
 }
 
@@ -13,6 +14,7 @@ export const ActivityTable: React.FC<ActivityTableProps> = ({
   title,
   activities,
   showDropRate = false,
+  showActiveStudents = false,
   onActivityClick
 }) => {
   return (
@@ -33,14 +35,14 @@ export const ActivityTable: React.FC<ActivityTableProps> = ({
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Renewals
               </th>
-              {showDropRate && (
+              {showActiveStudents && (
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Active Students
                 </th>
               )}
               {showDropRate && (
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Drop Rate
+                  Churn Rate
                 </th>
               )}
             </tr>
@@ -79,9 +81,9 @@ export const ActivityTable: React.FC<ActivityTableProps> = ({
                     </div>
                   </div>
                 </td>
-                {showDropRate && (
+                {showActiveStudents && (
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {activity.enrollments - Math.round((activity.dropRate / 100) * activity.enrollments)}
+                    {(activity as any).activeStudents || 0}
                   </td>
                 )}
                 {showDropRate && (

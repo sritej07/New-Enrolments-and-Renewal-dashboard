@@ -1,40 +1,41 @@
 import React, { useState, useMemo } from 'react';
 import { 
-  Users, 
   UserPlus, 
+  Users,
   RefreshCw, 
   TrendingUp, 
   TrendingDown,
   Activity,
-  BookOpen,
-  BarChart3,
-  Target
+  Clock,
+  DollarSign
 } from 'lucide-react';
 import { useStudentData } from './hooks/useStudentData';
-import { DataProcessor } from './utils/dataProcessor';
+import { UnifiedDataProcessor } from './utils/unifiedDataProcessor';
 import { MetricCard } from './components/MetricCard';
 import { ClickableMetricCard } from './components/ClickableMetricCard';
 import { LineChart } from './components/charts/LineChart';
 import { BarChart } from './components/charts/BarChart';
 import { DoughnutChart } from './components/charts/DoughnutChart';
-import { FilterPanel } from './components/FilterPanel';
+import { DateRangeFilter } from './components/DateRangeFilter';
+import { UnifiedTrendChart } from './components/charts/UnifiedTrendChart';
 import { ActivityTable } from './components/ActivityTable';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { ErrorAlert } from './components/ErrorAlert';
-import { RenewalDashboard } from './components/RenewalDashboard';
-import { EnrollmentStudentModal } from './components/EnrollmentStudentModal';
-import { Student } from './types/Student';
+import { UnifiedStudentModal } from './components/UnifiedStudentModal';
+import { DateRange, StudentWithLTV } from './types/UnifiedTypes';
+import { subYears } from 'date-fns';
 
 function App() {
   const { students, loading, error, refetch } = useStudentData();
-  const [selectedPeriod, setSelectedPeriod] = useState<'quarter' | 'year' | 'custom'>('year');
-  const [customMonths, setCustomMonths] = useState(12);
-  const [activeTab, setActiveTab] = useState<'enrollment' | 'renewal'>('enrollment');
+  const [dateRange, setDateRange] = useState<DateRange>({
+    startDate: subYears(new Date(), 3),
+    endDate: new Date()
+  });
   
-  const [enrollmentModalState, setEnrollmentModalState] = useState<{
+  const [modalState, setModalState] = useState<{
     isOpen: boolean;
     title: string;
-    students: Student[];
+    students: StudentWithLTV[];
   }>({
     isOpen: false,
     title: '',
@@ -44,23 +45,11 @@ function App() {
   const dashboardData = useMemo(() => {
     if (!students.length) return null;
 
-    // Filter students based on selected period
-    const filteredStudents = DataProcessor.filterStudentsByPeriod(
-      students, 
-      selectedPeriod, 
-      customMonths
-    );
-
-    const metrics = DataProcessor.calculateDashboardMetrics(filteredStudents);
-    const monthlyData = DataProcessor.getMonthlyEnrollments(filteredStudents, 12);
-    const activityData = DataProcessor.getActivityEnrollments(filteredStudents);
-    const topActivities = DataProcessor.getTopActivities(filteredStudents, 10);
-    const highDropRateActivities = DataProcessor.getHighestDropRateActivities(filteredStudents, 5);
-    const renewalRate = DataProcessor.getRenewalRateByPeriod(
-      filteredStudents, 
-      selectedPeriod, 
-      customMonths
-    );
+    const metrics = UnifiedDataProcessor.calculateUnifiedMetrics(students, dateRange);
+    const monthlyData = UnifiedDataProcessor.calculateMonthlyTrends(students, 12);
+    const trendData = UnifiedDataProcessor.calculateTrendData(students, 12);
+    const topActivities = UnifiedDataProcessor.getActivityEnrollments(students).slice(0, 10);
+    const highChurnActivities = UnifiedDataProcessor.getActivityChurnRates(students).slice(0, 5);
 
     // Chart data
     const enrollmentChartData = {
@@ -74,15 +63,8 @@ function App() {
           fill: true,
         },
         {
-          label: 'Renewals',
-          data: monthlyData.map(d => d.renewals),
-          borderColor: '#16a34a',
-          backgroundColor: 'rgba(22, 163, 74, 0.1)',
-          fill: true,
-        },
-        {
-          label: 'Drop-offs',
-          data: monthlyData.map(d => d.dropOffs),
+          label: 'Dropped',
+          data: monthlyData.map(d => d.dropped),
           borderColor: '#dc2626',
           backgroundColor: 'rgba(220, 38, 38, 0.1)',
           fill: true,
@@ -101,6 +83,7 @@ function App() {
         {
           label: 'Renewals',
           data: topActivities.slice(0, 8).map(a => a.renewals),
+          borderColor: '#16a34a',
           backgroundColor: '#10b981',
         }
       ]
@@ -111,7 +94,7 @@ function App() {
       datasets: [
         {
           data: [
-            metrics.totalNewEnrollments - metrics.multiActivityStudents,
+            metrics.newEnrollments - metrics.multiActivityStudents,
             metrics.multiActivityStudents
           ],
           backgroundColor: ['#94a3b8', '#3b82f6'],
@@ -122,49 +105,30 @@ function App() {
 
     return {
       metrics,
-      renewalRate,
       monthlyData,
-      activityData,
+      trendData,
       topActivities,
-      highDropRateActivities,
+      highChurnActivities,
       enrollmentChartData,
       activityBarData,
-      multiActivityData,
-      filteredStudents
+      multiActivityData
     };
-  }, [students, selectedPeriod, customMonths]);
+  }, [students, dateRange]);
 
-  const openEnrollmentModal = (title: string, studentList: Student[]) => {
-    setEnrollmentModalState({
+  const openModal = (title: string, studentList: StudentWithLTV[]) => {
+    setModalState({
       isOpen: true,
       title,
       students: studentList
     });
   };
 
-  const closeEnrollmentModal = () => {
-    setEnrollmentModalState({
+  const closeModal = () => {
+    setModalState({
       isOpen: false,
       title: '',
       students: []
     });
-  };
-
-  const getStudentsByActivity = (activityName: string): Student[] => {
-    if (!dashboardData) return [];
-    return dashboardData.filteredStudents.filter(student => 
-      student.activities.includes(activityName)
-    );
-  };
-
-  const getDroppedStudents = (): Student[] => {
-    if (!dashboardData) return [];
-    return dashboardData.filteredStudents.filter(student => student.isStrikeOff);
-  };
-
-  const getMultiActivityStudents = (): Student[] => {
-    if (!dashboardData) return [];
-    return dashboardData.filteredStudents.filter(student => student.activities.length > 1);
   };
 
   if (loading) {
@@ -179,7 +143,7 @@ function App() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <BarChart3 className="mx-auto text-gray-400 mb-4" size={48} />
+          <Activity className="mx-auto text-gray-400 mb-4" size={48} />
           <h2 className="text-xl font-semibold text-gray-600">No Data Available</h2>
           <p className="text-gray-500 mt-2">Please check your data source and try again.</p>
         </div>
@@ -189,13 +153,12 @@ function App() {
 
   const { 
     metrics, 
-    renewalRate, 
+    trendData,
     enrollmentChartData, 
     activityBarData, 
     multiActivityData,
     topActivities,
-    highDropRateActivities,
-    filteredStudents
+    highChurnActivities
   } = dashboardData;
 
   return (
@@ -205,132 +168,156 @@ function App() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                Student Analytics Dashboard
-              </h1>
-              <p className="text-gray-600 mt-2">
-                Track enrollments, renewals, and student activity across all programs
-              </p>
-            </div>
-            
-            {/* Tab Navigation */}
-            <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
-              <button
-                onClick={() => setActiveTab('enrollment')}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  activeTab === 'enrollment'
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <BarChart3 size={16} />
-                <span>Enrollment</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('renewal')}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  activeTab === 'renewal'
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <Target size={16} />
-                <span>Renewal Analytics</span>
-              </button>
-            </div>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">
+              Unified Student Analytics Dashboard
+            </h1>
+            <p className="text-gray-600 mt-2">
+              Comprehensive view of enrollments, renewals, churn, and student lifecycle metrics
+            </p>
           </div>
         </div>
 
-        {/* Tab Content */}
-        {activeTab === 'enrollment' ? (
-          <>
-            {/* Filters */}
-            <FilterPanel
-              selectedPeriod={selectedPeriod}
-              customMonths={customMonths}
-              onPeriodChange={setSelectedPeriod}
-              onCustomMonthsChange={setCustomMonths}
-              onRefresh={refetch}
-            />
+        {/* Date Range Filter */}
+        <DateRangeFilter
+          dateRange={dateRange}
+          onDateRangeChange={setDateRange}
+          onRefresh={refetch}
+        />
 
-            {/* Metrics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">
-              
-              <ClickableMetricCard
-                title="New Enrollments"
-                value={metrics.totalNewEnrollments.toLocaleString()}
-                icon={UserPlus}
-                iconColor="text-green-600"
-                onClick={() => openEnrollmentModal('New Enrollments', filteredStudents)}
-              />
-              <ClickableMetricCard
-                title="Drop-off Rate"
-                value={`${metrics.dropOffRate}%`}
-                icon={TrendingDown}
-                iconColor="text-red-600"
-                onClick={() => openEnrollmentModal('Dropped Students', getDroppedStudents())}
-              />
-              <ClickableMetricCard
-                title="Multi-Activity Students"
-                value={metrics.multiActivityStudents.toLocaleString()}
-                icon={Activity}
-                iconColor="text-orange-600"
-                onClick={() => openEnrollmentModal('Multi-Activity Students', getMultiActivityStudents())}
-              />
-            </div>
-
-            {/* Charts Row 1 */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-              <LineChart
-                title="Monthly Enrollment Trends"
-                data={enrollmentChartData}
-              />
-              <DoughnutChart
-                title="Students by Activity Count"
-                data={multiActivityData}
-              />
-            </div>
-
-            {/* Charts Row 2 */}
-            <div className="grid grid-cols-1 mb-8">
-              <BarChart
-                title="Enrollments and Renewals by Activity"
-                data={activityBarData}
-                height={350}
-              />
-            </div>
-
-            {/* Tables */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <ActivityTable
-                title="Top Activities by Enrollment"
-                activities={topActivities}
-                onActivityClick={(activity) => openEnrollmentModal(`Students in ${activity}`, getStudentsByActivity(activity))}
-              />
-              <ActivityTable
-                title="Activities with Highest Drop Rates"
-                activities={highDropRateActivities}
-                showDropRate={true}
-                onActivityClick={(activity) => openEnrollmentModal(`Students in ${activity}`, getStudentsByActivity(activity))}
-              />
-            </div>
-
-            {/* Enrollment Modal */}
-            <EnrollmentStudentModal
-              isOpen={enrollmentModalState.isOpen}
-              onClose={closeEnrollmentModal}
-              title={enrollmentModalState.title}
-              students={enrollmentModalState.students}
-            />
-          </>
-        ) : (
-          <RenewalDashboard
-            StudentData={students}
-            onRefresh={refetch}
+        {/* Primary Metrics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">
+          <ClickableMetricCard
+            title="New Enrollments"
+            value={metrics.newEnrollments.toLocaleString()}
+            icon={UserPlus}
+            iconColor="text-green-600"
+            onClick={() => openModal('New Enrollments', UnifiedDataProcessor.getNewEnrollments(students, dateRange))}
           />
-        )}
+          <ClickableMetricCard
+            title="Eligible Students"
+            value={metrics.eligibleStudents.toLocaleString()}
+            icon={Users}
+            iconColor="text-yellow-600"
+            onClick={() => openModal('Eligible Students', UnifiedDataProcessor.getEligibleStudents(students))}
+          />
+          <ClickableMetricCard
+            title="Renewed Students"
+            value={metrics.renewedStudents.toLocaleString()}
+            icon={RefreshCw}
+            iconColor="text-blue-600"
+            onClick={() => openModal('Renewed Students', UnifiedDataProcessor.getRenewedStudents(students))}
+          />
+          <ClickableMetricCard
+            title="Churned Students"
+            value={metrics.churnedStudents.toLocaleString()}
+            icon={TrendingDown}
+            iconColor="text-red-600"
+            onClick={() => openModal('Churned Students', UnifiedDataProcessor.getChurnedStudents(students))}
+          />
+          <ClickableMetricCard
+            title="In Grace Period"
+            value={metrics.inGraceStudents.toLocaleString()}
+            icon={Clock}
+            iconColor="text-orange-600"
+            onClick={() => openModal('In Grace Period', UnifiedDataProcessor.getInGraceStudents(students))}
+          />
+          <ClickableMetricCard
+            title="Multi-Activity Students"
+            value={metrics.multiActivityStudents.toLocaleString()}
+            icon={Activity}
+            iconColor="text-purple-600"
+            onClick={() => openModal('Multi-Activity Students', UnifiedDataProcessor.getMultiActivityStudents(students, dateRange))}
+          />
+        </div>
+
+        {/* Percentage Metrics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <MetricCard
+            title="Renewal %"
+            value={`${metrics.renewalPercentage}%`}
+            icon={TrendingUp}
+            iconColor="text-green-600"
+          />
+          <MetricCard
+            title="Churn %"
+            value={`${metrics.churnPercentage}%`}
+            icon={TrendingDown}
+            iconColor="text-red-600"
+          />
+          <MetricCard
+            title="Retention %"
+            value={`${metrics.retentionPercentage}%`}
+            icon={RefreshCw}
+            iconColor="text-blue-600"
+          />
+          <MetricCard
+            title="Net Growth %"
+            value={`${metrics.netGrowthPercentage}%`}
+            icon={TrendingUp}
+            iconColor="text-purple-600"
+          />
+        </div>
+
+        {/* LTV Metric */}
+        <div className="grid grid-cols-1 gap-6 mb-8">
+          <MetricCard
+            title="Total Lifetime Value (LTV)"
+            value={`$${metrics.lifetimeValue.toLocaleString()}`}
+            icon={DollarSign}
+            iconColor="text-green-600"
+          />
+        </div>
+
+        {/* Trend Over Time */}
+        <div className="mb-8">
+          <UnifiedTrendChart data={trendData} />
+        </div>
+
+        {/* Enrollment Trends */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <LineChart
+            title="Monthly Enrollment Trends"
+            data={enrollmentChartData}
+          />
+          <DoughnutChart
+            title="Students by Activity Count"
+            data={multiActivityData}
+          />
+        </div>
+
+        {/* Activity-Based Charts */}
+        <div className="grid grid-cols-1 mb-8">
+          <BarChart
+            title="Enrollments and Renewals by Activity"
+            data={activityBarData}
+            height={350}
+          />
+        </div>
+
+        {/* Activity Tables */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <ActivityTable
+            title="Top Activities by Enrollment"
+            activities={topActivities}
+            onActivityClick={(activity) => openModal(`Students in ${activity}`, UnifiedDataProcessor.getStudentsByActivity(students, activity))}
+          />
+          <ActivityTable
+            title="Activities with Highest Churn Rates"
+            activities={highChurnActivities}
+            showDropRate={true}
+            showActiveStudents={true}
+            onActivityClick={(activity) => openModal(`Students in ${activity}`, UnifiedDataProcessor.getStudentsByActivity(students, activity))}
+          />
+        </div>
+
+        {/* Student Modal */}
+        <UnifiedStudentModal
+          isOpen={modalState.isOpen}
+          onClose={closeModal}
+          title={modalState.title}
+          students={modalState.students}
+        />
 
         {/* Footer */}
         <div className="mt-12 text-center text-gray-500 text-sm">

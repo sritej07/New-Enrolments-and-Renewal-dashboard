@@ -47,6 +47,7 @@ const getMockData = (): Student[] => {
 
   for (let i = 1; i <= 150; i++) {
     const enrollmentDate = new Date(2022, Math.floor(Math.random() * 36), Math.floor(Math.random() * 28) + 1);
+    const endDate = new Date(enrollmentDate.getTime() + (Math.random() * 365 * 24 * 60 * 60 * 1000));
     const hasRenewal = Math.random() > 0.3;
     const isStrikeOff = Math.random() > 0.85;
     
@@ -60,7 +61,8 @@ const getMockData = (): Student[] => {
         () => activities[Math.floor(Math.random() * activities.length)]
       ).filter((v, i, a) => a.indexOf(v) === i),
       enrollmentDate,
-      lastRenewalDate: hasRenewal ? new Date(enrollmentDate.getTime() + Math.random() * 365 * 24 * 60 * 60 * 1000) : undefined,
+      endDate,
+      renewalDates: hasRenewal ? [new Date(enrollmentDate.getTime() + Math.random() * 365 * 24 * 60 * 60 * 1000)] : [],
       isActive: !isStrikeOff,
       isStrikeOff,
       fees: Math.floor(Math.random() * 500) + 100,

@@ -6,6 +6,7 @@ export interface Student {
   activities: string[];
   enrollmentDate: Date;
   renewalDates: Date[]; 
+  endDate?: Date;
   isActive: boolean;
   isStrikeOff: boolean;
   fees?: number;
