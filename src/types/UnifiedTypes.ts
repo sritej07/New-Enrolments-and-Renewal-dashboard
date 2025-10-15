@@ -29,7 +29,21 @@ export interface UnifiedMetrics {
   netGrowthPercentage: number;
   lifetimeValue: number;
 }
-
+export interface Student {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  activities: string[];
+  enrollmentDate: Date;
+  renewalDates: Date[]; 
+  endDate?: Date;
+  isActive: boolean;
+  isStrikeOff: boolean;
+  fees?: number;
+  notes?: string;
+  package?: string;
+}
 export interface StudentWithLTV extends Student {
   lifetimeValue: number;
   studentId?: string;
