@@ -63,6 +63,13 @@ function App() {
           fill: true,
         },
         {
+          label: 'Renewals',
+          data: monthlyData.map(d => d.renewals),
+          borderColor: '#16a34a',
+          backgroundColor: 'rgba(22, 163, 74, 0.1)',
+          fill: true,
+        },
+        {
           label: 'Dropped',
           data: monthlyData.map(d => d.dropped),
           borderColor: '#dc2626',

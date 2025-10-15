@@ -18,8 +18,8 @@ export const useStudentData = () => {
         return;
       }
 
-      const rawData = await googleSheetsService.fetchSheetData();
-      const parsedStudents = googleSheetsService.parseStudentData(rawData);
+      const { enrollmentData, renewalData } = await googleSheetsService.fetchBothSheets();
+      const parsedStudents = googleSheetsService.parseStudentData(enrollmentData, renewalData);
       
       setStudents(parsedStudents);
       

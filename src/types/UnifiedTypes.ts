@@ -8,6 +8,7 @@ export interface MonthlyMetrics {
   date: Date;
   startOfMonth: number;
   newEnrollments: number;
+  renewals: number;
   dropped: number;
   endOfMonth: number;
   churnRate: number;
