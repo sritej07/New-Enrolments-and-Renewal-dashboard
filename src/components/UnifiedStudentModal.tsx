@@ -76,7 +76,7 @@ export const UnifiedStudentModal: React.FC<UnifiedStudentModalProps> = ({
           <div>
             <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
             <p className="text-sm text-gray-600 mt-1">
-              {students.length} students • Total LTV: ${totalLTV.toLocaleString()}
+              {students.length} students • Total LTV: ₹{totalLTV.toLocaleString('en-IN')}
             </p>
           </div>
           <button
