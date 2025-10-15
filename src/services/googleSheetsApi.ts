@@ -14,9 +14,10 @@ export class GoogleSheetsService {
     this.sheetId = SHEET_ID || '';
   }
 
-  async fetchSheetData(range: string = `${import.meta.env.VITE_SHEET_NAME}!A:V`): Promise<any[][]> {
+  async fetchSheetData(sheetName: string = 'FormResponses1', range: string = 'A:W'): Promise<any[][]> {
     try {
-      const url = `https://sheets.googleapis.com/v4/spreadsheets/${this.sheetId}/values/${range}?key=${this.apiKey}`;
+      const fullRange = `${sheetName}!${range}`;
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${this.sheetId}/values/${fullRange}?key=${this.apiKey}`;
       const response = await axios.get(url);
       return response.data.values || [];
     } catch (error) {
@@ -25,19 +26,33 @@ export class GoogleSheetsService {
     }
   }
 
-  parseStudentData(rawData: any[][]): Student[] {
-  if (rawData.length < 2) return [];
+  async fetchBothSheets(): Promise<{ enrollmentData: any[][], renewalData: any[][] }> {
+    try {
+      const [enrollmentData, renewalData] = await Promise.all([
+        this.fetchSheetData('FormResponses1', 'A:W'),
+        this.fetchSheetData('Renewal', 'A:W')
+      ]);
+      return { enrollmentData, renewalData };
+    } catch (error) {
+      console.error('Error fetching both sheets:', error);
+      throw new Error('Failed to fetch data from both sheets');
+    }
+  }
 
-  const headers = rawData[0];
+  parseStudentData(enrollmentData: any[][], renewalData: any[][]): Student[] {
+  if (enrollmentData.length < 2) return [];
+
+  const headers = enrollmentData[0];
   const studentMap: Map<string, Student> = new Map();
 
-  for (let i = 1; i < rawData.length; i++) {
-    const row = rawData[i];
+  // Process enrollment data
+  for (let i = 1; i < enrollmentData.length; i++) {
+    const row = enrollmentData[i];
     if (!row || row.length === 0) continue;
 
     const studentId = row[20] || `student-${i}`;
     const startDate = this.parseDate(row[7]);
-    const endDate = this.parseDate(row[16]); // End Date column
+    const endDate = this.parseDate(row[16]); // End Date (Q1) column
     const isStrikeOff = this.isRowStrikeOff(row);
     const activities = this.parseActivities(row[6] || '');
 
@@ -47,33 +62,37 @@ export class GoogleSheetsService {
         name: row[2] || 'Unknown',
         email: row[1] || undefined,
         phone: row[4] || undefined,
-        activities: activities.length > 0 ? activities : [], // init with parsed activities
+        activities: activities.length > 0 ? activities : [],
         enrollmentDate: startDate,
         endDate: endDate,
         renewalDates: [],
         isActive: !isStrikeOff,
         isStrikeOff,
-        fees: row[9] ? parseFloat(row[9]) : undefined,
+        fees: row[9] ? parseFloat(row[9].replace(/[$,]/g, '')) : undefined,
         notes: row[19] || undefined,
         package: row[5] || undefined,
       });
-    } else {
-      const existing = studentMap.get(studentId)!;
+    }
+  }
 
-      // collect renewal dates
-      if (startDate > existing.enrollmentDate) {
-        existing.renewalDates.push(startDate);
-      }
+  // Process renewal data
+  if (renewalData.length > 1) {
+    for (let i = 1; i < renewalData.length; i++) {
+      const row = renewalData[i];
+      if (!row || row.length === 0) continue;
 
-      // update end date if newer
-      if (endDate && (!existing.endDate || endDate > existing.endDate)) {
-        existing.endDate = endDate;
-      }
-
-      // merge new activities (avoid duplicates)
-      for (const act of activities) {
-        if (!existing.activities.includes(act)) {
-          existing.activities.push(act);
+      const studentId = row[20] || `renewal-${i}`;
+      const renewalDate = this.parseDate(row[7]); // Start Date in renewal sheet is renewal date
+      
+      if (studentMap.has(studentId) && renewalDate) {
+        const student = studentMap.get(studentId)!;
+        if (!student.renewalDates.includes(renewalDate)) {
+          student.renewalDates.push(renewalDate);
+        }
+        // Update fees with renewal fees
+        const renewalFees = row[9] ? parseFloat(row[9].replace(/[$,]/g, '')) : 0;
+        if (renewalFees > 0) {
+          student.fees = (student.fees || 0) + renewalFees;
         }
       }
     }
@@ -86,8 +105,9 @@ export class GoogleSheetsService {
 
 
   private isRowStrikeOff(row: any[]): boolean {
-    const marker = row[21]?.toString().trim().toUpperCase(); // Column V
-    return marker === 'STRIKE';
+    // Check if any key fields are struck through or marked as inactive
+    const strikeHelper = row[21]?.toString().trim().toUpperCase();
+    return strikeHelper === 'STRIKE' || strikeHelper === 'INACTIVE';
   }
 
 
