@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Mail, Phone, Calendar, Package, DollarSign, Hash } from 'lucide-react';
+import { X, Mail, Phone, Calendar, Package, DollarSign, Hash ,IndianRupee } from 'lucide-react';
 import { format } from 'date-fns';
 import { StudentWithLTV } from '../types/UnifiedTypes';
 
@@ -156,9 +156,9 @@ export const UnifiedStudentModal: React.FC<UnifiedStudentModalProps> = ({
                       )}
 
                       <div className="flex items-center space-x-2">
-                        <DollarSign size={16} className="text-green-400" />
+                        <IndianRupee size={16} className="text-green-400" />
                         <span className="text-gray-600">
-                          LTV: ${student.lifetimeValue.toLocaleString()}
+                          LTV: ₹{student.lifetimeValue.toLocaleString('en-IN')}
                         </span>
                       </div>
 

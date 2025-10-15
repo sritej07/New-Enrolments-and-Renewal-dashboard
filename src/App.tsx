@@ -7,7 +7,8 @@ import {
   TrendingDown,
   Activity,
   Clock,
-  DollarSign
+  DollarSign,
+  IndianRupee 
 } from 'lucide-react';
 import { useStudentData } from './hooks/useStudentData';
 import { UnifiedDataProcessor } from './utils/unifiedDataProcessor';
@@ -288,8 +289,8 @@ function App() {
         <div className="grid grid-cols-1 gap-6 mb-8">
           <MetricCard
             title="Total Lifetime Value (LTV)"
-            value={`$${metrics.lifetimeValue.toLocaleString()}`}
-            icon={DollarSign}
+            value={`₹${metrics.lifetimeValue.toLocaleString('en-IN')}`}
+            icon={IndianRupee}
             iconColor="text-green-600"
           />
         </div>
