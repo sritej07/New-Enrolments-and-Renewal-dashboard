@@ -27,6 +27,30 @@ export const UnifiedStudentModal: React.FC<UnifiedStudentModalProps> = ({
       );
     }
     
+    // Check if student is churned based on grace period
+    if (student.endDate) {
+      const now = new Date();
+      const graceEndDate = new Date(student.endDate.getTime() + (45 * 24 * 60 * 60 * 1000));
+      const hasRenewal = student.renewalDates && student.renewalDates.length > 0 &&
+        student.renewalDates.some(renewalDate => renewalDate <= graceEndDate);
+      
+      if (now > graceEndDate && !hasRenewal) {
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+            Churned
+          </span>
+        );
+      }
+      
+      if (now > student.endDate && now <= graceEndDate && !hasRenewal) {
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+            In Grace Period
+          </span>
+        );
+      }
+    }
+    
     if (student.renewalDates && student.renewalDates.length > 0) {
       return (
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
