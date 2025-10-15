@@ -321,7 +321,10 @@ export class UnifiedDataProcessor {
         );
       return isAfter(now, graceEndDate) && !hasRenewal;
     });
-    return this.getStudentsWithLTV(churned);
+    return this.getStudentsWithLTV(churned).map(student => ({
+      ...student,
+      isActive: false // Mark churned students as inactive
+    }));
   }
 
   static getInGraceStudents(students: Student[]): StudentWithLTV[] {
