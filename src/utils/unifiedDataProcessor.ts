@@ -16,9 +16,21 @@ export class UnifiedDataProcessor {
   static calculateUnifiedMetrics(students: Student[], dateRange: DateRange): UnifiedMetrics {
     const newEnrollments = this.filterStudentsByDateRange(students, dateRange).length;
     
-    // Multi-Activity Students (from filtered enrollments)
-    const multiActivityStudents = this.filterStudentsByDateRange(students, dateRange)
-      .filter(s => s.activities.length > 1).length;
+    // Multi-Activity Students: Students who are enrolled in multiple activities
+    // We need to check all students, not just those in date range, but count unique students
+    const studentActivityMap = new Map<string, Set<string>>();
+    
+    students.forEach(student => {
+      if (!studentActivityMap.has(student.id)) {
+        studentActivityMap.set(student.id, new Set());
+      }
+      student.activities.forEach(activity => {
+        studentActivityMap.get(student.id)!.add(activity);
+      });
+    });
+    
+    const multiActivityStudents = Array.from(studentActivityMap.values())
+      .filter(activities => activities.size > 1).length;
     
     // Calculate renewal metrics
     const now = new Date();
@@ -342,9 +354,27 @@ export class UnifiedDataProcessor {
   }
 
   static getMultiActivityStudents(students: Student[], dateRange: DateRange): StudentWithLTV[] {
-    const filtered = this.filterStudentsByDateRange(students, dateRange);
-    const multiActivity = filtered.filter(s => s.activities.length > 1);
-    return this.getStudentsWithLTV(multiActivity);
+    // Create a map to track all activities per student
+    const studentActivityMap = new Map<string, { student: Student, activities: Set<string> }>();
+    
+    students.forEach(student => {
+      if (!studentActivityMap.has(student.id)) {
+        studentActivityMap.set(student.id, { 
+          student: student, 
+          activities: new Set() 
+        });
+      }
+      student.activities.forEach(activity => {
+        studentActivityMap.get(student.id)!.activities.add(activity);
+      });
+    });
+    
+    // Filter students with multiple activities
+    const multiActivityStudents = Array.from(studentActivityMap.values())
+      .filter(entry => entry.activities.size > 1)
+      .map(entry => entry.student);
+    
+    return this.getStudentsWithLTV(multiActivityStudents);
   }
 
   static getStudentsByActivity(students: Student[], activityName: string): StudentWithLTV[] {
