@@ -32,10 +32,11 @@ export class UnifiedDataProcessor {
       });
     });
 
-    const renewedStudents = eligibleStudents.filter(student => {
+    const renewedStudents = students.filter(student => {
       if (!student.renewalDates || student.renewalDates.length === 0) return false;
       if (!student.endDate) return false;
       const graceEndDate = addDays(student.endDate, 45);
+      // Filter by renewal date falling within the selected date range
       return student.renewalDates.some(renewalDate => 
         (isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime()) &&
         isWithinInterval(renewalDate, {
@@ -45,17 +46,14 @@ export class UnifiedDataProcessor {
       );
     });
 
-    const churnedStudents = eligibleStudents.filter(student => {
+    const churnedStudents = students.filter(student => {
       if (!student.endDate) return false;
       const graceEndDate = addDays(student.endDate, 45);
       const hasRenewal = student.renewalDates && student.renewalDates.length > 0 &&
         student.renewalDates.some(renewalDate => 
-          (isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime()) &&
-          isWithinInterval(renewalDate, {
-            start: dateRange.startDate,
-            end: dateRange.endDate
-          })
+          isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime()
         );
+      // Filter by grace period end date falling within the selected date range
       return isAfter(now, graceEndDate) && !hasRenewal &&
         isWithinInterval(graceEndDate, {
           start: dateRange.startDate,
@@ -63,17 +61,14 @@ export class UnifiedDataProcessor {
         });
     });
 
-    const inGraceStudents = eligibleStudents.filter(student => {
+    const inGraceStudents = students.filter(student => {
       if (!student.endDate) return false;
       const graceEndDate = addDays(student.endDate, 45);
       const hasRenewal = student.renewalDates && student.renewalDates.length > 0 &&
         student.renewalDates.some(renewalDate => 
-          (isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime()) &&
-          isWithinInterval(renewalDate, {
-            start: dateRange.startDate,
-            end: dateRange.endDate
-          })
+          isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime()
         );
+      // Filter by course expiration date within range AND currently in grace period
       return isAfter(now, student.endDate) && isBefore(now, graceEndDate) && !hasRenewal &&
         isWithinInterval(student.endDate, {
           start: dateRange.startDate,
@@ -293,24 +288,36 @@ export class UnifiedDataProcessor {
     );
   }
 
-  static getEligibleStudents(students: Student[]): StudentWithLTV[] {
-    const eligible = students.filter(student => student.endDate);
+  static getEligibleStudents(students: Student[], dateRange: DateRange): StudentWithLTV[] {
+    const eligible = students.filter(student => {
+      if (!student.endDate) return false;
+      return isWithinInterval(student.endDate, {
+        start: dateRange.startDate,
+        end: dateRange.endDate
+      });
+    });
     return this.getStudentsWithLTV(eligible);
   }
 
-  static getRenewedStudents(students: Student[]): StudentWithLTV[] {
+  static getRenewedStudents(students: Student[], dateRange: DateRange): StudentWithLTV[] {
     const renewed = students.filter(student => {
       if (!student.renewalDates || student.renewalDates.length === 0) return false;
       if (!student.endDate) return false;
+      
       const graceEndDate = addDays(student.endDate, 45);
+      // Filter by renewal date falling within the selected date range
       return student.renewalDates.some(renewalDate => 
-        isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime()
+        (isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime()) &&
+        isWithinInterval(renewalDate, {
+          start: dateRange.startDate,
+          end: dateRange.endDate
+        })
       );
     });
     return this.getStudentsWithLTV(renewed);
   }
 
-  static getChurnedStudents(students: Student[]): StudentWithLTV[] {
+  static getChurnedStudents(students: Student[], dateRange: DateRange): StudentWithLTV[] {
     const now = new Date();
     const churned = students.filter(student => {
       if (!student.endDate) return false;
@@ -319,7 +326,12 @@ export class UnifiedDataProcessor {
         student.renewalDates.some(renewalDate => 
           isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime()
         );
-      return isAfter(now, graceEndDate) && !hasRenewal;
+      // Filter by grace period end date falling within the selected date range
+      return isAfter(now, graceEndDate) && !hasRenewal &&
+        isWithinInterval(graceEndDate, {
+          start: dateRange.startDate,
+          end: dateRange.endDate
+        });
     });
     return this.getStudentsWithLTV(churned).map(student => ({
       ...student,
@@ -327,7 +339,7 @@ export class UnifiedDataProcessor {
     }));
   }
 
-  static getInGraceStudents(students: Student[]): StudentWithLTV[] {
+  static getInGraceStudents(students: Student[], dateRange: DateRange): StudentWithLTV[] {
     const now = new Date();
     const inGrace = students.filter(student => {
       if (!student.endDate) return false;
@@ -336,7 +348,12 @@ export class UnifiedDataProcessor {
         student.renewalDates.some(renewalDate => 
           isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime()
         );
-      return isAfter(now, student.endDate) && isBefore(now, graceEndDate) && !hasRenewal;
+      // Filter by course expiration date within range AND currently in grace period
+      return isAfter(now, student.endDate) && isBefore(now, graceEndDate) && !hasRenewal &&
+        isWithinInterval(student.endDate, {
+          start: dateRange.startDate,
+          end: dateRange.endDate
+        });
     });
     return this.getStudentsWithLTV(inGrace);
   }
