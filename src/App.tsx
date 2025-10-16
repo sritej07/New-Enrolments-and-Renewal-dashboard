@@ -207,46 +207,28 @@ function App() {
             value={metrics.eligibleStudents.toLocaleString()}
             icon={Users}
             iconColor="text-yellow-600"
-            onClick={() => openModal('Eligible Students', UnifiedDataProcessor.getEligibleStudents(students).filter(student => {
-              if (!student.endDate) return false;
-              return student.endDate >= dateRange.startDate && student.endDate <= dateRange.endDate;
-            }))}
+            onClick={() => openModal('Eligible Students', UnifiedDataProcessor.getEligibleStudents(students, dateRange))}
           />
           <ClickableMetricCard
             title="Renewed Students"
             value={metrics.renewedStudents.toLocaleString()}
             icon={RefreshCw}
             iconColor="text-blue-600"
-            onClick={() => openModal('Renewed Students', UnifiedDataProcessor.getRenewedStudents(students).filter(student => {
-              if (!student.renewalDates || student.renewalDates.length === 0) return false;
-              return student.renewalDates.some(renewalDate => 
-                renewalDate >= dateRange.startDate && renewalDate <= dateRange.endDate
-              );
-            }))}
+            onClick={() => openModal('Renewed Students', UnifiedDataProcessor.getRenewedStudents(students, dateRange))}
           />
           <ClickableMetricCard
             title="Churned Students"
             value={metrics.churnedStudents.toLocaleString()}
             icon={TrendingDown}
             iconColor="text-red-600"
-            onClick={() => openModal('Churned Students', UnifiedDataProcessor.getChurnedStudents(students).filter(student => {
-              if (!student.endDate) return false;
-              const graceEndDate = new Date(student.endDate.getTime() + (45 * 24 * 60 * 60 * 1000));
-              return graceEndDate >= dateRange.startDate && graceEndDate <= dateRange.endDate;
-            }))}
+            onClick={() => openModal('Churned Students', UnifiedDataProcessor.getChurnedStudents(students, dateRange))}
           />
           <ClickableMetricCard
             title="In Grace Period"
             value={metrics.inGraceStudents.toLocaleString()}
             icon={Clock}
             iconColor="text-orange-600"
-            onClick={() => openModal('In Grace Period', UnifiedDataProcessor.getInGraceStudents(students).filter(student => {
-              if (!student.endDate) return false;
-              const now = new Date();
-              const graceEndDate = new Date(student.endDate.getTime() + (45 * 24 * 60 * 60 * 1000));
-              return student.endDate >= dateRange.startDate && student.endDate <= dateRange.endDate &&
-                     now > student.endDate && now <= graceEndDate;
-            }))}
+            onClick={() => openModal('In Grace Period', UnifiedDataProcessor.getInGraceStudents(students, dateRange))}
           />
           <ClickableMetricCard
             title="Multi-Activity Students"

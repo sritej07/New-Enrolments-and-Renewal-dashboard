@@ -17,10 +17,12 @@ export class UnifiedDataProcessor {
     const newEnrollments = this.filterStudentsByDateRange(students, dateRange).length;
     
     // Multi-Activity Students: Students who are enrolled in multiple activities
-    // We need to check all students, not just those in date range, but count unique students
+    // Check students enrolled in the date range for multi-activity count
     const studentActivityMap = new Map<string, Set<string>>();
     
-    students.forEach(student => {
+    // Only consider students enrolled in the date range
+    const studentsInRange = this.filterStudentsByDateRange(students, dateRange);
+    studentsInRange.forEach(student => {
       if (!studentActivityMap.has(student.id)) {
         studentActivityMap.set(student.id, new Set());
       }
@@ -35,7 +37,7 @@ export class UnifiedDataProcessor {
     // Calculate renewal metrics
     const now = new Date();
     
-    // Eligible students: those whose end date falls within the selected date range
+    // Eligible students: those whose end date falls within the selected date range AND have end date
     const eligibleStudents = students.filter(student => {
       if (!student.endDate) return false;
       return isWithinInterval(student.endDate, {
@@ -44,53 +46,57 @@ export class UnifiedDataProcessor {
       });
     });
 
-    const renewedStudents = eligibleStudents.filter(student => {
+    // Renewed students: from eligible students who renewed within grace period
+    const renewedStudents = students.filter(student => {
       if (!student.renewalDates || student.renewalDates.length === 0) return false;
       if (!student.endDate) return false;
+      
+      // Check if end date is in range
+      if (!isWithinInterval(student.endDate, {
+        start: dateRange.startDate,
+        end: dateRange.endDate
+      })) return false;
+      
       const graceEndDate = addDays(student.endDate, 45);
       return student.renewalDates.some(renewalDate => 
-        (isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime()) &&
-        isWithinInterval(renewalDate, {
-          start: dateRange.startDate,
-          end: dateRange.endDate
-        })
+        (isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime())
       );
     });
 
-    const churnedStudents = eligibleStudents.filter(student => {
+    // Churned students: from eligible students who didn't renew within grace period
+    const churnedStudents = students.filter(student => {
       if (!student.endDate) return false;
+      
+      // Check if end date is in range
+      if (!isWithinInterval(student.endDate, {
+        start: dateRange.startDate,
+        end: dateRange.endDate
+      })) return false;
+      
       const graceEndDate = addDays(student.endDate, 45);
       const hasRenewal = student.renewalDates && student.renewalDates.length > 0 &&
         student.renewalDates.some(renewalDate => 
-          (isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime()) &&
-          isWithinInterval(renewalDate, {
-            start: dateRange.startDate,
-            end: dateRange.endDate
-          })
+          (isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime())
         );
-      return isAfter(now, graceEndDate) && !hasRenewal &&
-        isWithinInterval(graceEndDate, {
-          start: dateRange.startDate,
-          end: dateRange.endDate
-        });
+      return isAfter(now, graceEndDate) && !hasRenewal;
     });
 
-    const inGraceStudents = eligibleStudents.filter(student => {
+    // In Grace students: from eligible students currently in grace period
+    const inGraceStudents = students.filter(student => {
       if (!student.endDate) return false;
+      
+      // Check if end date is in range
+      if (!isWithinInterval(student.endDate, {
+        start: dateRange.startDate,
+        end: dateRange.endDate
+      })) return false;
+      
       const graceEndDate = addDays(student.endDate, 45);
       const hasRenewal = student.renewalDates && student.renewalDates.length > 0 &&
         student.renewalDates.some(renewalDate => 
-          (isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime()) &&
-          isWithinInterval(renewalDate, {
-            start: dateRange.startDate,
-            end: dateRange.endDate
-          })
+          (isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime())
         );
-      return isAfter(now, student.endDate) && isBefore(now, graceEndDate) && !hasRenewal &&
-        isWithinInterval(student.endDate, {
-          start: dateRange.startDate,
-          end: dateRange.endDate
-        });
+      return isAfter(now, student.endDate) && isBefore(now, graceEndDate) && !hasRenewal;
     });
 
     // Calculate percentages
@@ -306,14 +312,27 @@ export class UnifiedDataProcessor {
   }
 
   static getEligibleStudents(students: Student[]): StudentWithLTV[] {
-    const eligible = students.filter(student => student.endDate);
+    const eligible = students.filter(student => {
+      if (!student.endDate) return false;
+      return isWithinInterval(student.endDate, {
+        start: dateRange.startDate,
+        end: dateRange.endDate
+      });
+    });
     return this.getStudentsWithLTV(eligible);
   }
 
-  static getRenewedStudents(students: Student[]): StudentWithLTV[] {
+  static getRenewedStudents(students: Student[], dateRange: DateRange): StudentWithLTV[] {
     const renewed = students.filter(student => {
       if (!student.renewalDates || student.renewalDates.length === 0) return false;
       if (!student.endDate) return false;
+      
+      // Check if end date is in range
+      if (!isWithinInterval(student.endDate, {
+        start: dateRange.startDate,
+        end: dateRange.endDate
+      })) return false;
+      
       const graceEndDate = addDays(student.endDate, 45);
       return student.renewalDates.some(renewalDate => 
         isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime()
@@ -322,10 +341,17 @@ export class UnifiedDataProcessor {
     return this.getStudentsWithLTV(renewed);
   }
 
-  static getChurnedStudents(students: Student[]): StudentWithLTV[] {
+  static getChurnedStudents(students: Student[], dateRange: DateRange): StudentWithLTV[] {
     const now = new Date();
     const churned = students.filter(student => {
       if (!student.endDate) return false;
+      
+      // Check if end date is in range
+      if (!isWithinInterval(student.endDate, {
+        start: dateRange.startDate,
+        end: dateRange.endDate
+      })) return false;
+      
       const graceEndDate = addDays(student.endDate, 45);
       const hasRenewal = student.renewalDates && student.renewalDates.length > 0 &&
         student.renewalDates.some(renewalDate => 
@@ -339,10 +365,17 @@ export class UnifiedDataProcessor {
     }));
   }
 
-  static getInGraceStudents(students: Student[]): StudentWithLTV[] {
+  static getInGraceStudents(students: Student[], dateRange: DateRange): StudentWithLTV[] {
     const now = new Date();
     const inGrace = students.filter(student => {
       if (!student.endDate) return false;
+      
+      // Check if end date is in range
+      if (!isWithinInterval(student.endDate, {
+        start: dateRange.startDate,
+        end: dateRange.endDate
+      })) return false;
+      
       const graceEndDate = addDays(student.endDate, 45);
       const hasRenewal = student.renewalDates && student.renewalDates.length > 0 &&
         student.renewalDates.some(renewalDate => 
