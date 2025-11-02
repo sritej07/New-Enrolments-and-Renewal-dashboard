@@ -17,8 +17,34 @@ export class UnifiedDataProcessor {
     const newEnrollments = this.filterStudentsByDateRange(students, dateRange).length;
     
     // Multi-Activity Students (from filtered enrollments)
-    const multiActivityStudents = this.filterStudentsByDateRange(students, dateRange)
-      .filter(s => s.activities.length > 1).length;
+    // Handle both data structures: merged students with activities array OR separate rows per activity
+    const filteredStudents = this.filterStudentsByDateRange(students, dateRange);
+    const studentActivityMap = new Map<string, Set<string>>();
+    
+    // Collect all unique activities per student ID
+    filteredStudents.forEach(student => {
+      if (!studentActivityMap.has(student.id)) {
+        studentActivityMap.set(student.id, new Set());
+      }
+      
+      const activities = studentActivityMap.get(student.id)!;
+      
+      // Add activities from the activities array (for merged data)
+      student.activities.forEach(activity => {
+        if (activity && activity.trim()) {
+          activities.add(activity.trim());
+        }
+      });
+      
+      // Add single activity from activity field (for separate row data)
+      if (student.activity && student.activity.trim()) {
+        activities.add(student.activity.trim());
+      }
+    });
+    
+    // Count students with more than 1 unique activity
+    const multiActivityStudents = Array.from(studentActivityMap.values())
+      .filter(activities => activities.size > 1).length;
     
     // Calculate renewal metrics
     const now = new Date();
@@ -360,8 +386,42 @@ export class UnifiedDataProcessor {
 
   static getMultiActivityStudents(students: Student[], dateRange: DateRange): StudentWithLTV[] {
     const filtered = this.filterStudentsByDateRange(students, dateRange);
-    const multiActivity = filtered.filter(s => s.activities.length > 1);
-    return this.getStudentsWithLTV(multiActivity);
+    const studentActivityMap = new Map<string, Set<string>>();
+    const studentDataMap = new Map<string, Student>();
+    
+    // Collect all unique activities per student ID
+    filtered.forEach(student => {
+      if (!studentActivityMap.has(student.id)) {
+        studentActivityMap.set(student.id, new Set());
+        studentDataMap.set(student.id, student); // Store one instance of student data
+      }
+      
+      const activities = studentActivityMap.get(student.id)!;
+      
+      // Add activities from the activities array (for merged data)
+      student.activities.forEach(activity => {
+        if (activity && activity.trim()) {
+          activities.add(activity.trim());
+        }
+      });
+      
+      // Add single activity from activity field (for separate row data)
+      if (student.activity && student.activity.trim()) {
+        activities.add(student.activity.trim());
+      }
+    });
+    
+    // Get students with more than 1 unique activity
+    const multiActivityStudentIds = Array.from(studentActivityMap.entries())
+      .filter(([_, activities]) => activities.size > 1)
+      .map(([studentId, _]) => studentId);
+    
+    // Return all enrollment records for multi-activity students
+    const multiActivityStudents = filtered.filter(student => 
+      multiActivityStudentIds.includes(student.id)
+    );
+    
+    return this.getStudentsWithLTV(multiActivityStudents);
   }
 
   static getStudentsByActivity(students: Student[], activityName: string): StudentWithLTV[] {

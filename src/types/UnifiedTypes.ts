@@ -36,6 +36,7 @@ export interface Student {
   email?: string;
   phone?: string;
   activities: string[];
+  activity?: string; // Single activity for this enrollment row
   enrollmentDate: Date;
   renewalDates: Date[]; 
   endDate?: Date;
