@@ -13,6 +13,7 @@ export interface Student {
   fees?: number;
   notes?: string;
   package?: string;
+  source?: string; // Track data source (FormResponses1, RazorpayEnrollments, etc.)
 }
 
 export interface EnrollmentData {

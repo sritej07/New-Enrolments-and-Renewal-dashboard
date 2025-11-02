@@ -9,23 +9,29 @@ export const useStudentData = () => {
 
   const fetchData = async () => {
     try {
+      console.log('🚀 Starting data fetch process...');
       setLoading(true);
       setError(null);
       
       // For demo purposes, we'll use mock data if API keys are not available
       if (!import.meta.env.VITE_GOOGLE_SHEETS_API_KEY) {
+        console.warn('⚠️ No API key found, using mock data');
         setStudents(getMockData());
         return;
       }
 
+      console.log('🔑 API key found, fetching real data...');
       const { enrollmentData, renewalData } = await googleSheetsService.fetchBothSheets();
       const parsedStudents = googleSheetsService.parseStudentData(enrollmentData, renewalData);
       
+      console.log(`✅ Data fetch complete: ${parsedStudents.length} students processed`);
       setStudents(parsedStudents);
       
     } catch (err) {
+      console.error('❌ Error in fetchData:', err);
       setError(err instanceof Error ? err.message : 'An error occurred');
       // Fallback to mock data
+      console.log('🔄 Falling back to mock data...');
       setStudents(getMockData());
       
     } finally {

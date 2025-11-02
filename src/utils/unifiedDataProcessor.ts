@@ -14,7 +14,12 @@ export class UnifiedDataProcessor {
   }
 
   static calculateUnifiedMetrics(students: Student[], dateRange: DateRange): UnifiedMetrics {
+    console.log('📊 Calculating unified metrics...');
+    console.log(`📅 Date Range: ${dateRange.startDate.toDateString()} to ${dateRange.endDate.toDateString()}`);
+    console.log(`👥 Total Students: ${students.length}`);
+    
     const newEnrollments = this.filterStudentsByDateRange(students, dateRange).length;
+    console.log(`🆕 New Enrollments: ${newEnrollments}`);
     
     // Multi-Activity Students (from filtered enrollments)
     // Handle both data structures: merged students with activities array OR separate rows per activity
@@ -46,6 +51,8 @@ export class UnifiedDataProcessor {
     const multiActivityStudents = Array.from(studentActivityMap.values())
       .filter(activities => activities.size > 1).length;
     
+    console.log(`🎯 Multi-Activity Students: ${multiActivityStudents}`);
+    
     // Calculate renewal metrics
     const now = new Date();
     
@@ -57,6 +64,8 @@ export class UnifiedDataProcessor {
         end: dateRange.endDate
       });
     });
+    
+    console.log(`✅ Eligible Students: ${eligibleStudents.length}`);
 
     const renewedStudents = students.filter(student => {
       if (!student.renewalDates || student.renewalDates.length === 0) return false;
@@ -71,6 +80,8 @@ export class UnifiedDataProcessor {
         })
       );
     });
+    
+    console.log(`🔄 Renewed Students: ${renewedStudents.length}`);
 
     const churnedStudents = students.filter(student => {
       if (!student.endDate) return false;
@@ -86,6 +97,8 @@ export class UnifiedDataProcessor {
           end: dateRange.endDate
         });
     });
+    
+    console.log(`❌ Churned Students: ${churnedStudents.length}`);
 
     const inGraceStudents = students.filter(student => {
       if (!student.endDate) return false;
@@ -101,6 +114,8 @@ export class UnifiedDataProcessor {
           end: dateRange.endDate
         });
     });
+    
+    console.log(`⏳ In Grace Students: ${inGraceStudents.length}`);
 
     // Calculate percentages
     const renewalPercentage = eligibleStudents.length > 0 
