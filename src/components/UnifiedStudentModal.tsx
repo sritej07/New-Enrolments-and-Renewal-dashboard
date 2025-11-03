@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, Mail, Phone, Calendar, Package, DollarSign, Hash ,IndianRupee } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import { StudentWithLTV } from '../types/UnifiedTypes';
 
 interface UnifiedStudentModalProps {
@@ -17,6 +17,13 @@ export const UnifiedStudentModal: React.FC<UnifiedStudentModalProps> = ({
   students
 }) => {
   if (!isOpen) return null;
+
+  const formatDate = (date: Date | undefined | null): string => {
+    if (!date || !isValid(date)) {
+      return 'Invalid Date';
+    }
+    return format(date, 'MMM dd, yyyy');
+  };
 
   const getStatusBadge = (student: StudentWithLTV) => {
     if (student.isStrikeOff) {
@@ -147,7 +154,7 @@ export const UnifiedStudentModal: React.FC<UnifiedStudentModalProps> = ({
                       <div className="flex items-center space-x-2">
                         <Calendar size={16} className="text-gray-400" />
                         <span className="text-gray-600">
-                          Enrolled: {format(student.enrollmentDate, 'MMM dd, yyyy')}
+                          Enrolled: {formatDate(student.enrollmentDate)}
                         </span>
                       </div>
 
@@ -155,7 +162,7 @@ export const UnifiedStudentModal: React.FC<UnifiedStudentModalProps> = ({
                         <div className="flex items-center space-x-2">
                           <Calendar size={16} className="text-red-400" />
                           <span className="text-gray-600">
-                            Expires: {format(student.endDate, 'MMM dd, yyyy')}
+                            Expires: {formatDate(student.endDate)}
                           </span>
                         </div>
                       )}
@@ -171,7 +178,7 @@ export const UnifiedStudentModal: React.FC<UnifiedStudentModalProps> = ({
                         <div key={idx} className="flex items-center space-x-2">
                           <Calendar size={16} className="text-green-500" />
                           <span className="text-gray-600">
-                            Renewed: {format(new Date(date), 'MMM dd, yyyy')}
+                            Renewed: {formatDate(new Date(date))}
                           </span>
                         </div>
                       ))}
