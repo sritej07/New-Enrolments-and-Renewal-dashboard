@@ -7,28 +7,34 @@ const SHEET_ID = import.meta.env.VITE_GOOGLE_SHEET_ID;
 export class GoogleSheetsService {
   private apiKey: string;
   private sheetId: string;
+  private debugLogs: string[] = [];
 
   constructor() {
     this.apiKey = GOOGLE_SHEETS_API_KEY || "";
     this.sheetId = SHEET_ID || "";
   }
 
+  private log(message: string) {
+    console.log(message);
+    this.debugLogs.push(message);
+  }
+
   async fetchSheetData(sheetName: string, range: string = "A:U"): Promise<any[][]> {
     try {
-      console.log(`📥 Fetching sheet: ${sheetName} (${range})`);
+      this.log(`📥 Fetching sheet: ${sheetName} (${range})`);
       const url = `https://sheets.googleapis.com/v4/spreadsheets/${this.sheetId}/values/${sheetName}!${range}?key=${this.apiKey}`;
       const response = await axios.get(url);
       const values = response.data.values || [];
-      console.log(`✅ ${sheetName}: ${values.length} rows`);
+      this.log(`✅ ${sheetName}: ${values.length} rows`);
       return values;
     } catch (error) {
-      console.warn(`⚠️ Could not fetch sheet ${sheetName}:`, error);
+      this.log(`⚠️ Could not fetch sheet ${sheetName}: ${(error as Error).message}`);
       return [];
     }
   }
 
   async fetchBothSheets(): Promise<{ enrollmentData: any[][]; renewalData: any[][] }> {
-    console.log("🔄 Fetching data from all relevant sheets...");
+    this.log("🔄 Fetching data from all relevant sheets...");
 
     const [
       formResponses,
@@ -46,7 +52,6 @@ export class GoogleSheetsService {
       this.fetchSheetData("RazorpayRenewals"),
     ]);
 
-    // Helper to tag each dataset with its source name
     const tagData = (data: any[][], source: string): any[][] => {
       if (data.length <= 1) return [];
       const header = data[0];
@@ -54,28 +59,19 @@ export class GoogleSheetsService {
       return [header, ...taggedRows];
     };
 
-    const taggedFormResponses = tagData(formResponses, "FormResponses1");
-    const taggedOldFormResponses = tagData(oldFormResponses, "OldFormResponses1");
-    const taggedRazorpayEnrollments = tagData(razorpayEnrollments, "RazorpayEnrollments");
-    const taggedRenewals = tagData(renewals, "Renewal");
-    const taggedHistoricalRenewals = tagData(historicalRenewals, "HistoricalRenewal");
-    const taggedRazorpayRenewals = tagData(razorpayRenewals, "RazorpayRenewals");
-
-    // ✅ Merge enrollment data
     const enrollmentData = [
-      ...(taggedFormResponses.length ? taggedFormResponses : []),
-      ...(taggedOldFormResponses.slice(1) || []),
-      ...(taggedRazorpayEnrollments.slice(1) || []),
+      ...tagData(formResponses, "FormResponses1"),
+      ...tagData(oldFormResponses, "OldFormResponses1").slice(1),
+      ...tagData(razorpayEnrollments, "RazorpayEnrollments").slice(1),
     ];
 
-    // ✅ Merge renewal data
     const renewalData = [
-      ...(taggedRenewals.length ? taggedRenewals : []),
-      ...(taggedHistoricalRenewals.slice(1) || []),
-      ...(taggedRazorpayRenewals.slice(1) || []),
+      ...tagData(renewals, "Renewal"),
+      ...tagData(historicalRenewals, "HistoricalRenewal").slice(1),
+      ...tagData(razorpayRenewals, "RazorpayRenewals").slice(1),
     ];
 
-    console.log(`✅ Combined Data Summary:
+    this.log(`✅ Combined Data Summary:
       • Enrollment Rows: ${enrollmentData.length}
       • Renewal Rows: ${renewalData.length}
     `);
@@ -85,41 +81,30 @@ export class GoogleSheetsService {
 
   parseStudentData(enrollmentData: any[][], renewalData: any[][]): Student[] {
     if (enrollmentData.length < 2) {
-      console.warn("⚠️ Enrollment sheet is empty or missing headers.");
+      this.log("⚠️ Enrollment sheet is empty or missing headers.");
       return [];
     }
 
     const studentMap: Map<string, Student> = new Map();
     const normalizeId = (id: string) => id?.trim().toLowerCase().replace(/\s+/g, "") || "";
 
-    // Debug trackers
-    const missingIdRows: string[] = [];
-    const duplicateStudents: string[] = [];
-    const unmatchedRenewals: string[] = [];
+    const missingIdRows: { id: string; name: string; source: string }[] = [];
+    const duplicateStudents: { id: string; source: string }[] = [];
+    const unmatchedRenewals: { id: string; row: number; source: string }[] = [];
+    const invalidDateRows: { id: string; name: string; source: string; date: string }[] = [];
 
     let invalidDateCount = 0;
     let missingIdCount = 0;
     let duplicateCount = 0;
     let unmatchedRenewalCount = 0;
-    let formEnrollments = 0;
-    let oldFormEnrollments = 0;
-    let razorpayEnrollments = 0;
-    let renewalCount = 0;
-    let historicalRenewalCount = 0;
-    let razorpayRenewalCount = 0;
 
-    console.log(`📊 Parsing ${enrollmentData.length - 1} enrollment rows...`);
+    this.log(`📊 Parsing ${enrollmentData.length - 1} enrollment rows...`);
 
-    // ✅ Enrollment parsing
     for (let i = 1; i < enrollmentData.length; i++) {
       const row = enrollmentData[i];
       if (!row || row.length === 0) continue;
 
       const source = row[row.length - 1];
-      if (source === "RazorpayEnrollments") razorpayEnrollments++;
-      else if (source === "OldFormResponses1") oldFormEnrollments++;
-      else formEnrollments++;
-
       const rawId = row[20];
       const studentId = normalizeId(rawId) || normalizeId(`${row[2] || "unknown"}-${i}`);
       const startDate = this.parseDate(row[7]);
@@ -127,17 +112,29 @@ export class GoogleSheetsService {
 
       if (!rawId) {
         missingIdCount++;
-        missingIdRows.push(`Row ${i + 1} → Name: ${row[2] || "Unknown"} | Source: ${source}`);
+        missingIdRows.push({
+          id: `Row ${i + 1} - Generated: ${studentId}`,
+          name: row[2] || "Unknown",
+          source,
+        });
       }
 
-      if (!startDate) invalidDateCount++;
+      if (!startDate) {
+        invalidDateCount++;
+        invalidDateRows.push({
+          id: studentId,
+          name: row[2] || "Unknown",
+          source,
+          date: `${row[7] || "N/A"}`,
+        });
+      }
 
       const isStrikeOff = this.isRowStrikeOff(row);
       const activities = this.parseActivities(row[6] || "");
 
       if (studentMap.has(studentId)) {
         duplicateCount++;
-        duplicateStudents.push(studentId);
+        duplicateStudents.push({ id: studentId, source });
         const existing = studentMap.get(studentId)!;
         existing.activities = Array.from(new Set([...existing.activities, ...activities]));
         continue;
@@ -161,70 +158,87 @@ export class GoogleSheetsService {
       });
     }
 
-    // ✅ Renewal parsing
-    if (renewalData.length > 1) {
-      for (let i = 1; i < renewalData.length; i++) {
-        const row = renewalData[i];
-        if (!row || row.length === 0) continue;
+    // ✅ Process Renewals
+    for (let i = 1; i < renewalData.length; i++) {
+      const row = renewalData[i];
+      if (!row || row.length === 0) continue;
 
-        const source = row[row.length - 1];
-        if (source === "RazorpayRenewals") razorpayRenewalCount++;
-        else if (source === "HistoricalRenewal") historicalRenewalCount++;
-        else renewalCount++;
+      const source = row[row.length - 1];
+      const rawId = row[20];
+      const studentId = normalizeId(rawId) || `renewal-${i}`;
+      const renewalDate = this.parseDate(row[7]);
+      const renewalFees = row[9] ? parseFloat(row[9].replace(/[$,₹]/g, "")) : 0;
 
-        const rawId = row[20];
-        const studentId = normalizeId(rawId) || `renewal-${i}`;
-        const renewalDate = this.parseDate(row[7]);
-        const renewalFees = row[9] ? parseFloat(row[9].replace(/[$,₹]/g, "")) : 0;
+      if (!renewalDate) {
+        invalidDateCount++;
+        invalidDateRows.push({
+          id: studentId,
+          name: row[2] || "Unknown",
+          source,
+          date: `${row[7] || "N/A"}`,
+        });
+        continue;
+      }
 
-        if (!renewalDate) {
-          invalidDateCount++;
-          continue;
+      if (studentMap.has(studentId)) {
+        const student = studentMap.get(studentId)!;
+        if (!student.renewalDates.some((d) => d.getTime() === renewalDate.getTime())) {
+          student.renewalDates.push(renewalDate);
         }
-
-        if (studentMap.has(studentId)) {
-          const student = studentMap.get(studentId)!;
-          if (!student.renewalDates.some((d) => d.getTime() === renewalDate.getTime())) {
-            student.renewalDates.push(renewalDate);
-          }
-          if (renewalFees > 0) {
-            student.fees = (student.fees || 0) + renewalFees;
-          }
-          student.source = source;
-        } else {
-          unmatchedRenewalCount++;
-          unmatchedRenewals.push(
-            `Row ${i + 1} → Renewal Student ID: ${studentId} | Date: ${row[7]} | Source: ${source}`
-          );
-        }
+        if (renewalFees > 0) student.fees = (student.fees || 0) + renewalFees;
+      } else {
+        unmatchedRenewalCount++;
+        unmatchedRenewals.push({ id: studentId, row: i + 1, source });
       }
     }
 
-    // ✅ Print summary
-    console.log(`✅ Enrollment Summary:
-      • Total: ${enrollmentData.length - 1}
-      • FormResponses1: ${formEnrollments}
-      • OldFormResponses1: ${oldFormEnrollments}
-      • RazorpayEnrollments: ${razorpayEnrollments}
-      • Missing IDs: ${missingIdCount}
-      • Invalid Dates: ${invalidDateCount}
-      • Duplicates: ${duplicateCount}
+    // ✅ Log Summary
+    this.log(`✅ Parsing Summary:
+    • Total Students: ${studentMap.size}
+    • Missing IDs: ${missingIdCount}
+    • Invalid Dates: ${invalidDateCount}
+    • Duplicates: ${duplicateCount}
+    • Unmatched Renewals: ${unmatchedRenewalCount}
     `);
 
-    console.log(`✅ Renewal Summary:
-      • Total: ${renewalData.length - 1}
-      • Renewal: ${renewalCount}
-      • HistoricalRenewal: ${historicalRenewalCount}
-      • RazorpayRenewals: ${razorpayRenewalCount}
-      • Unmatched Renewals: ${unmatchedRenewalCount}
-    `);
+    if (missingIdRows.length) {
+      this.log("\n⚠️ Missing IDs:");
+      missingIdRows.forEach((s) =>
+        this.log(`→ ${s.id} | Name: ${s.name} | Source: ${s.source}`)
+      );
+    }
 
-    if (missingIdRows.length) console.warn("⚠️ Missing Student IDs:\n", missingIdRows.join("\n"));
-    if (duplicateStudents.length) console.warn("⚠️ Duplicate Students:\n", duplicateStudents.join("\n"));
-    if (unmatchedRenewals.length) console.warn("⚠️ Unmatched Renewals:\n", unmatchedRenewals.join("\n"));
+    if (duplicateStudents.length) {
+      this.log("\n⚠️ Duplicate Students:");
+      duplicateStudents.forEach((s) => this.log(`→ ${s.id} | Source: ${s.source}`));
+    }
 
-    console.log(`🎯 Final Parsed Students: ${studentMap.size}`);
+    if (invalidDateRows.length) {
+      this.log("\n⚠️ Invalid Dates:");
+      invalidDateRows.forEach((s) =>
+        this.log(`→ ${s.id} | Name: ${s.name} | Source: ${s.source} | Dates: ${s.date}`)
+      );
+    }
+
+    if (unmatchedRenewals.length) {
+      this.log("\n⚠️ Unmatched Renewals:");
+      unmatchedRenewals.forEach((r) =>
+        this.log(`→ Row ${r.row} | ID: ${r.id} | Source: ${r.source}`)
+      );
+    }
+
+    //this.exportLogs();
     return Array.from(studentMap.values());
+  }
+
+  private exportLogs() {
+    const blob = new Blob([this.debugLogs.join("\n")], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `GoogleSheets_Debug_Logs_${new Date().toISOString().slice(0, 10)}.txt`;
+    link.click();
+    this.log("📁 Debug log file downloaded successfully.");
   }
 
   private isRowStrikeOff(row: any[]): boolean {
@@ -239,12 +253,28 @@ export class GoogleSheetsService {
 
   private parseDate(dateStr: any): Date {
     if (!dateStr) return undefined as any;
+
+    // Handle Google Sheets numeric date serial
     if (!isNaN(dateStr) && typeof dateStr === "number") {
       return new Date(Math.round((dateStr - 25569) * 86400 * 1000));
     }
-    const parsed = new Date(dateStr);
+
+    // Normalize string
+    const str = dateStr.toString().trim();
+
+    // Match DD-MM-YYYY or DD/MM/YYYY
+    const match = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+    if (match) {
+      const [_, day, month, year] = match;
+      const yyyy = year.length === 2 ? `20${year}` : year; // support 2-digit year
+      return new Date(`${yyyy}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`);
+    }
+
+    // Fallback for already valid ISO or US formats
+    const parsed = new Date(str);
     return isNaN(parsed.getTime()) ? undefined as any : parsed;
   }
+
 }
 
 export const googleSheetsService = new GoogleSheetsService();
