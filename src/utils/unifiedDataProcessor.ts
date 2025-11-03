@@ -5,11 +5,16 @@ import { ActivityData } from '../types/Student';
 
 export class UnifiedDataProcessor {
   static filterStudentsByDateRange(students: Student[], dateRange: DateRange): Student[] {
+    // Ensure start date is inclusive by using start of day
+    const startDate = new Date(dateRange.startDate);
+    startDate.setHours(0, 0, 0, 0);
+    
+    // Ensure end date is inclusive by using end of day
+    const endDate = new Date(dateRange.endDate);
+    endDate.setHours(23, 59, 59, 999);
+    
     return students.filter(student => 
-      isWithinInterval(student.enrollmentDate, {
-        start: dateRange.startDate,
-        end: dateRange.endDate
-      })
+      student.enrollmentDate >= startDate && student.enrollmentDate <= endDate
     );
   }
 
@@ -74,10 +79,7 @@ export class UnifiedDataProcessor {
       // Filter by renewal date falling within the selected date range
       return student.renewalDates.some(renewalDate => 
         (isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime()) &&
-        isWithinInterval(renewalDate, {
-          start: dateRange.startDate,
-          end: dateRange.endDate
-        })
+        renewalDate >= startDate && renewalDate <= endDate
       );
     });
     
