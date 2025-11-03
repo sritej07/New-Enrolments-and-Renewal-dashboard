@@ -79,7 +79,7 @@ export class UnifiedDataProcessor {
       // Filter by renewal date falling within the selected date range
       return student.renewalDates.some(renewalDate => 
         (isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime()) &&
-        renewalDate >= startDate && renewalDate <= endDate
+        renewalDate >= dateRange.startDate && renewalDate <= dateRange.endDate
       );
     });
     
