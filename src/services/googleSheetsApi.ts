@@ -18,22 +18,35 @@ export class GoogleSheetsService {
       console.log(`📥 Fetching sheet: ${sheetName} (${range})`);
       const url = `https://sheets.googleapis.com/v4/spreadsheets/${this.sheetId}/values/${sheetName}!${range}?key=${this.apiKey}`;
       const response = await axios.get(url);
-      return response.data.values || [];
+      const values = response.data.values || [];
+      console.log(`✅ ${sheetName}: ${values.length} rows`);
+      return values;
     } catch (error) {
-      console.error(`❌ Error fetching ${sheetName}:`, error);
+      console.warn(`⚠️ Could not fetch sheet ${sheetName}:`, error);
       return [];
     }
   }
 
   async fetchBothSheets(): Promise<{ enrollmentData: any[][]; renewalData: any[][] }> {
-    const [formResponses, razorpayEnrollments, renewals, razorpayRenewals] = await Promise.all([
+    console.log("🔄 Fetching data from all relevant sheets...");
+
+    const [
+      formResponses,
+      oldFormResponses,
+      razorpayEnrollments,
+      renewals,
+      historicalRenewals,
+      razorpayRenewals,
+    ] = await Promise.all([
       this.fetchSheetData("FormResponses1"),
+      this.fetchSheetData("OldFormResponses1"),
       this.fetchSheetData("RazorpayEnrollments"),
       this.fetchSheetData("Renewal"),
+      this.fetchSheetData("HistoricalRenewal"),
       this.fetchSheetData("RazorpayRenewals"),
     ]);
 
-    // ✅ Add source info to each dataset
+    // Helper to tag each dataset with its source name
     const tagData = (data: any[][], source: string): any[][] => {
       if (data.length <= 1) return [];
       const header = data[0];
@@ -42,17 +55,23 @@ export class GoogleSheetsService {
     };
 
     const taggedFormResponses = tagData(formResponses, "FormResponses1");
+    const taggedOldFormResponses = tagData(oldFormResponses, "OldFormResponses1");
     const taggedRazorpayEnrollments = tagData(razorpayEnrollments, "RazorpayEnrollments");
     const taggedRenewals = tagData(renewals, "Renewal");
+    const taggedHistoricalRenewals = tagData(historicalRenewals, "HistoricalRenewal");
     const taggedRazorpayRenewals = tagData(razorpayRenewals, "RazorpayRenewals");
 
+    // ✅ Merge enrollment data
     const enrollmentData = [
       ...(taggedFormResponses.length ? taggedFormResponses : []),
+      ...(taggedOldFormResponses.slice(1) || []),
       ...(taggedRazorpayEnrollments.slice(1) || []),
     ];
 
+    // ✅ Merge renewal data
     const renewalData = [
       ...(taggedRenewals.length ? taggedRenewals : []),
+      ...(taggedHistoricalRenewals.slice(1) || []),
       ...(taggedRazorpayRenewals.slice(1) || []),
     ];
 
@@ -66,7 +85,7 @@ export class GoogleSheetsService {
 
   parseStudentData(enrollmentData: any[][], renewalData: any[][]): Student[] {
     if (enrollmentData.length < 2) {
-      console.warn("⚠️ Enrollment sheet seems empty or missing headers.");
+      console.warn("⚠️ Enrollment sheet is empty or missing headers.");
       return [];
     }
 
@@ -83,20 +102,22 @@ export class GoogleSheetsService {
     let duplicateCount = 0;
     let unmatchedRenewalCount = 0;
     let formEnrollments = 0;
+    let oldFormEnrollments = 0;
     let razorpayEnrollments = 0;
-    let formRenewals = 0;
-    let razorpayRenewals = 0;
+    let renewalCount = 0;
+    let historicalRenewalCount = 0;
+    let razorpayRenewalCount = 0;
 
     console.log(`📊 Parsing ${enrollmentData.length - 1} enrollment rows...`);
 
-    // ✅ Parse enrollment data
+    // ✅ Enrollment parsing
     for (let i = 1; i < enrollmentData.length; i++) {
       const row = enrollmentData[i];
       if (!row || row.length === 0) continue;
 
       const source = row[row.length - 1];
-      const isRazorpayEnrollment = source === "RazorpayEnrollments";
-      if (isRazorpayEnrollment) razorpayEnrollments++;
+      if (source === "RazorpayEnrollments") razorpayEnrollments++;
+      else if (source === "OldFormResponses1") oldFormEnrollments++;
       else formEnrollments++;
 
       const rawId = row[20];
@@ -140,16 +161,16 @@ export class GoogleSheetsService {
       });
     }
 
-    // ✅ Parse renewal data
+    // ✅ Renewal parsing
     if (renewalData.length > 1) {
       for (let i = 1; i < renewalData.length; i++) {
         const row = renewalData[i];
         if (!row || row.length === 0) continue;
 
         const source = row[row.length - 1];
-        const isRazorpayRenewal = source === "RazorpayRenewals";
-        if (isRazorpayRenewal) razorpayRenewals++;
-        else formRenewals++;
+        if (source === "RazorpayRenewals") razorpayRenewalCount++;
+        else if (source === "HistoricalRenewal") historicalRenewalCount++;
+        else renewalCount++;
 
         const rawId = row[20];
         const studentId = normalizeId(rawId) || `renewal-${i}`;
@@ -169,7 +190,7 @@ export class GoogleSheetsService {
           if (renewalFees > 0) {
             student.fees = (student.fees || 0) + renewalFees;
           }
-          student.source = isRazorpayRenewal ? "RazorpayRenewals" : "Renewal";
+          student.source = source;
         } else {
           unmatchedRenewalCount++;
           unmatchedRenewals.push(
@@ -179,33 +200,30 @@ export class GoogleSheetsService {
       }
     }
 
-    // ✅ Print summary and debug details
-    console.log(`✅ Enrollment Parsing Summary:
-      • Total Rows: ${enrollmentData.length - 1}
-      • Parsed Students: ${studentMap.size}
+    // ✅ Print summary
+    console.log(`✅ Enrollment Summary:
+      • Total: ${enrollmentData.length - 1}
       • FormResponses1: ${formEnrollments}
+      • OldFormResponses1: ${oldFormEnrollments}
       • RazorpayEnrollments: ${razorpayEnrollments}
       • Missing IDs: ${missingIdCount}
       • Invalid Dates: ${invalidDateCount}
       • Duplicates: ${duplicateCount}
     `);
 
-    console.log(`✅ Renewal Parsing Summary:
-      • Total Renewals: ${renewalData.length - 1}
-      • Form Renewals: ${formRenewals}
-      • Razorpay Renewals: ${razorpayRenewals}
+    console.log(`✅ Renewal Summary:
+      • Total: ${renewalData.length - 1}
+      • Renewal: ${renewalCount}
+      • HistoricalRenewal: ${historicalRenewalCount}
+      • RazorpayRenewals: ${razorpayRenewalCount}
       • Unmatched Renewals: ${unmatchedRenewalCount}
     `);
 
-    // Print detailed lists
-    if (missingIdRows.length)
-      console.warn("⚠️ Missing Student IDs:\n", missingIdRows.join("\n"));
-    if (duplicateStudents.length)
-      console.warn("⚠️ Duplicate Student IDs:\n", duplicateStudents.join("\n"));
-    if (unmatchedRenewals.length)
-      console.warn("⚠️ Unmatched Renewals:\n", unmatchedRenewals.join("\n"));
+    if (missingIdRows.length) console.warn("⚠️ Missing Student IDs:\n", missingIdRows.join("\n"));
+    if (duplicateStudents.length) console.warn("⚠️ Duplicate Students:\n", duplicateStudents.join("\n"));
+    if (unmatchedRenewals.length) console.warn("⚠️ Unmatched Renewals:\n", unmatchedRenewals.join("\n"));
 
-    console.log(`🎯 Final Student Count: ${studentMap.size}`);
+    console.log(`🎯 Final Parsed Students: ${studentMap.size}`);
     return Array.from(studentMap.values());
   }
 
