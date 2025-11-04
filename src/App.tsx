@@ -203,7 +203,7 @@ function App() {
             onClick={() => openModal('New Enrollments', UnifiedDataProcessor.getNewEnrollments(students, dateRange))}
           />
           <ClickableMetricCard
-            title="Eligible Students"
+            title="Eligible Students for Renewal"
             value={metrics.eligibleStudents.toLocaleString()}
             icon={Users}
             iconColor="text-yellow-600"
