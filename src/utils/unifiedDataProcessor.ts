@@ -321,7 +321,8 @@ export class UnifiedDataProcessor {
     return students.map(student => ({
       ...student,
       lifetimeValue: student.fees || 0,
-      studentId: student.id
+      studentId: student.id,
+      renewalCount: student.renewalDates ? student.renewalDates.length : 0
     }));
   }
 

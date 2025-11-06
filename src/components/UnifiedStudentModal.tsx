@@ -174,6 +174,12 @@ export const UnifiedStudentModal: React.FC<UnifiedStudentModalProps> = ({
                         </span>
                       </div>
 
+                      <div className="flex items-center space-x-2">
+                        <RefreshCw size={16} className="text-blue-400" />
+                        <span className="text-gray-600">
+                          Renewals: {student.renewalCount || 0}
+                        </span>
+                      </div>
                       {student.renewalDates?.map((date, idx) => (
                         <div key={idx} className="flex items-center space-x-2">
                           <Calendar size={16} className="text-green-500" />
