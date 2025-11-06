@@ -61,8 +61,9 @@ export class UnifiedDataProcessor {
     // Calculate renewal metrics
     const now = new Date();
     
-    // Eligible students: those whose end date falls within the selected date range
-    const eligibleStudents = students.filter(student => {
+    // Calculate total eligible renewals: sum of all renewals made by students whose end date falls within the selected date range
+    // plus churned students (who didn't renew)
+    const eligibleStudentsForRenewal = students.filter(student => {
       if (!student.endDate) return false;
       return isWithinInterval(student.endDate, {
         start: dateRange.startDate,
@@ -70,20 +71,45 @@ export class UnifiedDataProcessor {
       });
     });
     
-    console.log(`✅ Eligible Students: ${eligibleStudents.length}`);
+    // Calculate total eligible renewals (renewals made + churned students who didn't renew)
+    const totalRenewalsMadeByEligible = eligibleStudentsForRenewal.reduce((total, student) => {
+      return total + (student.renewalDates ? student.renewalDates.length : 0);
+    }, 0);
+    
+    const churnedStudentsInRange = students.filter(student => {
+      if (!student.endDate) return false;
+      const graceEndDate = addDays(student.endDate, 45);
+      const hasRenewal = student.renewalDates && student.renewalDates.length > 0 &&
+        student.renewalDates.some(renewalDate => 
+          isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime()
+        );
+      return isAfter(now, graceEndDate) && !hasRenewal &&
+        isWithinInterval(graceEndDate, {
+          start: dateRange.startDate,
+          end: dateRange.endDate
+        });
+    });
+    
+    const eligibleRenewals = totalRenewalsMadeByEligible + churnedStudentsInRange.length;
+    
+    console.log(`✅ Eligible Renewals: ${eligibleRenewals} (${totalRenewalsMadeByEligible} renewals + ${churnedStudentsInRange.length} churned)`);
 
-    const renewedStudents = students.filter(student => {
+    // Calculate total renewals (count all renewal instances, not unique students)
+    const totalRenewals = students.reduce((total, student) => {
       if (!student.renewalDates || student.renewalDates.length === 0) return false;
       if (!student.endDate) return false;
       const graceEndDate = addDays(student.endDate, 45);
-      // Filter by renewal date falling within the selected date range
-      return student.renewalDates.some(renewalDate => 
+      
+      // Count renewals that fall within the selected date range and are within grace period
+      const validRenewals = student.renewalDates.filter(renewalDate => 
         (isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime()) &&
         renewalDate >= dateRange.startDate && renewalDate <= dateRange.endDate
       );
-    });
+      
+      return total + validRenewals.length;
+    }, 0);
     
-    console.log(`🔄 Renewed Students: ${renewedStudents.length}`);
+    console.log(`🔄 Total Renewals: ${totalRenewals}`);
 
     const churnedStudents = students.filter(student => {
       if (!student.endDate) return false;
@@ -120,18 +146,18 @@ export class UnifiedDataProcessor {
     console.log(`⏳ In Grace Students: ${inGraceStudents.length}`);
 
     // Calculate percentages
-    const renewalPercentage = eligibleStudents.length > 0 
-      ? (renewedStudents.length / eligibleStudents.length) * 100 
+    const renewalPercentage = eligibleRenewals > 0 
+      ? (totalRenewals / eligibleRenewals) * 100 
       : 0;
     
-    const churnPercentage = eligibleStudents.length > 0 
-      ? (churnedStudents.length / eligibleStudents.length) * 100 
+    const churnPercentage = eligibleRenewals > 0 
+      ? (churnedStudents.length / eligibleRenewals) * 100 
       : 0;
     
     const retentionPercentage = 100 - churnPercentage;
     
     // Calculate net growth: ((End - Start) / Start) * 100
-    const startOfPeriod = eligibleStudents.length;
+    const startOfPeriod = eligibleStudentsForRenewal.length;
     const endOfPeriod = startOfPeriod + newEnrollments - churnedStudents.length;
     const netGrowthPercentage = startOfPeriod > 0 
       ? ((endOfPeriod - startOfPeriod) / startOfPeriod) * 100 
@@ -157,8 +183,8 @@ export class UnifiedDataProcessor {
 
     return {
       newEnrollments,
-      eligibleStudents: eligibleStudents.length,
-      renewedStudents: renewedStudents.length,
+      eligibleStudents: eligibleRenewals,
+      renewedStudents: totalRenewals,
       churnedStudents: churnedStudents.length,
       inGraceStudents: inGraceStudents.length,
       multiActivityStudents,
