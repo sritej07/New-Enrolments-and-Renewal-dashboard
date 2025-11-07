@@ -23,23 +23,46 @@ export class UnifiedDataProcessor {
     console.log(`📅 Date Range: ${dateRange.startDate.toDateString()} to ${dateRange.endDate.toDateString()}`);
     console.log(`👥 Total Students: ${students.length}`);
     
-    // Define processed date range variables at function scope
-    const processedStartDate = new Date(dateRange.startDate);
-    processedStartDate.setHours(0, 0, 0, 0);
+    const startDate = new Date(dateRange.startDate);
+    startDate.setHours(0, 0, 0, 0);
     
-    const processedEndDate = new Date(dateRange.endDate);
-    processedEndDate.setHours(23, 59, 59, 999);
+    const endDate = new Date(dateRange.endDate);
+    endDate.setHours(23, 59, 59, 999);
     
-    const newEnrollments = this.filterStudentsByDateRange(students, dateRange).length;
+    // New Enrollments: All records from enrollment sheets within date range
+    const newEnrollments = students.filter(student => 
+      student.enrollmentDate >= startDate && 
+      student.enrollmentDate <= endDate &&
+      (student.source === 'FormResponses1' || student.source === 'OldFormResponses1' || student.source === 'RazorpayEnrollments')
+    ).length;
     console.log(`🆕 New Enrollments: ${newEnrollments}`);
     
-    // Multi-Activity Students (from filtered enrollments)
-    // Handle both data structures: merged students with activities array OR separate rows per activity
-    const filteredStudents = this.filterStudentsByDateRange(students, dateRange);
+    // Renewals: All records from renewal sheets within date range
+    const totalRenewals = students.filter(student => 
+      student.enrollmentDate >= startDate && 
+      student.enrollmentDate <= endDate &&
+      (student.source === 'Renewal' || student.source === 'HistoricalRenewal' || student.source === 'RazorpayRenewals')
+    ).length;
+    console.log(`🔄 Total Renewals: ${totalRenewals}`);
+    
+    // Eligible Renewals: Students whose end date falls within the date range
+    const eligibleRenewals = students.filter(student => {
+      if (!student.endDate) return false;
+      return student.endDate >= startDate && student.endDate <= endDate;
+    }).length;
+    console.log(`✅ Eligible Renewals: ${eligibleRenewals}`);
+    
+    // Multi-Activity Students (from enrollment records only)
+    const enrollmentStudents = students.filter(student => 
+      student.enrollmentDate >= startDate && 
+      student.enrollmentDate <= endDate &&
+      (student.source === 'FormResponses1' || student.source === 'OldFormResponses1' || student.source === 'RazorpayEnrollments')
+    );
+    
     const studentActivityMap = new Map<string, Set<string>>();
     
     // Collect all unique activities per student ID
-    filteredStudents.forEach(student => {
+    enrollmentStudents.forEach(student => {
       if (!studentActivityMap.has(student.id)) {
         studentActivityMap.set(student.id, new Set());
       }
@@ -58,66 +81,6 @@ export class UnifiedDataProcessor {
         activities.add(student.activity.trim());
       }
     });
-    
-    // Count students with more than 1 unique activity
-    const multiActivityStudents = Array.from(studentActivityMap.values())
-      .filter(activities => activities.size > 1).length;
-    
-    console.log(`🎯 Multi-Activity Students: ${multiActivityStudents}`);
-    
-    // Calculate renewal metrics
-    const now = new Date();
-    
-    // Calculate total eligible renewals: sum of all renewals made by students whose end date falls within the selected date range
-    // plus churned students (who didn't renew)
-    const eligibleStudentsForRenewal = students.filter(student => {
-      if (!student.endDate) return false;
-      return isWithinInterval(student.endDate, {
-        start: dateRange.startDate,
-        end: dateRange.endDate
-      });
-    });
-    
-    // Calculate total eligible renewals (renewals made + churned students who didn't renew)
-    const totalRenewalsMadeByEligible = eligibleStudentsForRenewal.reduce((total, student) => {
-      return total + (student.renewalDates ? student.renewalDates.length : 0);
-    }, 0);
-    
-    const churnedStudentsInRange = students.filter(student => {
-      if (!student.endDate) return false;
-      const graceEndDate = addDays(student.endDate, 45);
-      const hasRenewal = student.renewalDates && student.renewalDates.length > 0 &&
-        student.renewalDates.some(renewalDate => 
-          isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime()
-        );
-      return isAfter(now, graceEndDate) && !hasRenewal &&
-        isWithinInterval(graceEndDate, {
-          start: dateRange.startDate,
-          end: dateRange.endDate
-        });
-    });
-    
-    const eligibleRenewals = totalRenewalsMadeByEligible + churnedStudentsInRange.length;
-    
-    console.log(`✅ Eligible Renewals: ${eligibleRenewals} (${totalRenewalsMadeByEligible} renewals + ${churnedStudentsInRange.length} churned)`);
-
-    // Calculate total renewals (count all renewal instances, not unique students)
-    const totalRenewals = students.reduce((total, student) => {
-      if (!student.renewalDates || student.renewalDates.length === 0) return total;
-      if (!student.endDate) return total;
-      const graceEndDate = addDays(student.endDate, 45);
-      
-      // Count renewals that fall within the selected date range and are within grace period
-      const validRenewals = student.renewalDates.filter(renewalDate => 
-        (isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime()) &&
-        renewalDate >= processedStartDate && renewalDate <= processedEndDate
-      );
-      
-      return total + validRenewals.length;
-    }, 0);
-    
-    console.log(`🔄 Total Renewals: ${totalRenewals}`);
-
     const churnedStudents = students.filter(student => {
       if (!student.endDate) return false;
       const graceEndDate = addDays(student.endDate, 45);
@@ -125,14 +88,9 @@ export class UnifiedDataProcessor {
         student.renewalDates.some(renewalDate => 
           isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime()
         );
-      // Filter by grace period end date falling within the selected date range
-      return isAfter(now, graceEndDate) && !hasRenewal &&
-        isWithinInterval(graceEndDate, {
-          start: dateRange.startDate,
-          end: dateRange.endDate
-        });
+      return isAfter(now, graceEndDate) && !hasRenewal && 
+        student.endDate >= startDate && student.endDate <= endDate;
     });
-    
     console.log(`❌ Churned Students: ${churnedStudents.length}`);
 
     const inGraceStudents = students.filter(student => {
@@ -142,12 +100,8 @@ export class UnifiedDataProcessor {
         student.renewalDates.some(renewalDate => 
           isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime()
         );
-      // Filter by course expiration date within range AND currently in grace period
-      return isAfter(now, student.endDate) && isBefore(now, graceEndDate) && !hasRenewal &&
-        isWithinInterval(student.endDate, {
-          start: dateRange.startDate,
-          end: dateRange.endDate
-        });
+      return isAfter(now, student.endDate) && isBefore(now, graceEndDate) && !hasRenewal && 
+        student.endDate >= startDate && student.endDate <= endDate;
     });
     
     console.log(`⏳ In Grace Students: ${inGraceStudents.length}`);
@@ -164,7 +118,7 @@ export class UnifiedDataProcessor {
     const retentionPercentage = 100 - churnPercentage;
     
     // Calculate net growth: ((End - Start) / Start) * 100
-    const startOfPeriod = eligibleStudentsForRenewal.length;
+    const startOfPeriod = eligibleRenewals;
     const endOfPeriod = startOfPeriod + newEnrollments - churnedStudents.length;
     const netGrowthPercentage = startOfPeriod > 0 
       ? ((endOfPeriod - startOfPeriod) / startOfPeriod) * 100 
@@ -172,16 +126,7 @@ export class UnifiedDataProcessor {
     
     // Calculate total LTV for students in date range
     const studentsInRange = students.filter(student => 
-      isWithinInterval(student.enrollmentDate, {
-        start: dateRange.startDate,
-        end: dateRange.endDate
-      }) || 
-      (student.renewalDates && student.renewalDates.some(renewalDate =>
-        isWithinInterval(renewalDate, {
-          start: dateRange.startDate,
-          end: dateRange.endDate
-        })
-      ))
+      student.enrollmentDate >= startDate && student.enrollmentDate <= endDate
     );
     
     const lifetimeValue = studentsInRange.reduce((total, student) => {
@@ -360,41 +305,52 @@ export class UnifiedDataProcessor {
   }
 
   static getNewEnrollments(students: Student[], dateRange: DateRange): StudentWithLTV[] {
-    return this.getStudentsWithLTV(
-      this.filterStudentsByDateRange(students, dateRange)
+    const startDate = new Date(dateRange.startDate);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(dateRange.endDate);
+    endDate.setHours(23, 59, 59, 999);
+    
+    const enrollments = students.filter(student => 
+      student.enrollmentDate >= startDate && 
+      student.enrollmentDate <= endDate &&
+      (student.source === 'FormResponses1' || student.source === 'OldFormResponses1' || student.source === 'RazorpayEnrollments')
     );
+    return this.getStudentsWithLTV(enrollments);
   }
 
   static getEligibleStudents(students: Student[], dateRange: DateRange): StudentWithLTV[] {
+    const startDate = new Date(dateRange.startDate);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(dateRange.endDate);
+    endDate.setHours(23, 59, 59, 999);
+    
     const eligible = students.filter(student => {
       if (!student.endDate) return false;
-      return isWithinInterval(student.endDate, {
-        start: dateRange.startDate,
-        end: dateRange.endDate
-      });
+      return student.endDate >= startDate && student.endDate <= endDate;
     });
     return this.getStudentsWithLTV(eligible);
   }
 
   static getRenewedStudents(students: Student[], dateRange: DateRange): StudentWithLTV[] {
-    const renewed = students.filter(student => {
-      if (!student.renewalDates || student.renewalDates.length === 0) return false;
-      if (!student.endDate) return false;
-      
-      const graceEndDate = addDays(student.endDate, 45);
-      // Filter by renewal date falling within the selected date range
-      return student.renewalDates.some(renewalDate => 
-        (isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime()) &&
-        isWithinInterval(renewalDate, {
-          start: dateRange.startDate,
-          end: dateRange.endDate
-        })
-      );
-    });
-    return this.getStudentsWithLTV(renewed);
+    const startDate = new Date(dateRange.startDate);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(dateRange.endDate);
+    endDate.setHours(23, 59, 59, 999);
+    
+    const renewals = students.filter(student => 
+      student.enrollmentDate >= startDate && 
+      student.enrollmentDate <= endDate &&
+      (student.source === 'Renewal' || student.source === 'HistoricalRenewal' || student.source === 'RazorpayRenewals')
+    );
+    return this.getStudentsWithLTV(renewals);
   }
 
   static getChurnedStudents(students: Student[], dateRange: DateRange): StudentWithLTV[] {
+    const startDate = new Date(dateRange.startDate);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(dateRange.endDate);
+    endDate.setHours(23, 59, 59, 999);
+    
     const now = new Date();
     const churned = students.filter(student => {
       if (!student.endDate) return false;
@@ -403,12 +359,8 @@ export class UnifiedDataProcessor {
         student.renewalDates.some(renewalDate => 
           isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime()
         );
-      // Filter by grace period end date falling within the selected date range
-      return isAfter(now, graceEndDate) && !hasRenewal &&
-        isWithinInterval(graceEndDate, {
-          start: dateRange.startDate,
-          end: dateRange.endDate
-        });
+      return isAfter(now, graceEndDate) && !hasRenewal && 
+        student.endDate >= startDate && student.endDate <= endDate;
     });
     return this.getStudentsWithLTV(churned).map(student => ({
       ...student,
@@ -430,7 +382,6 @@ export class UnifiedDataProcessor {
         student.renewalDates.some(renewalDate => 
           isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime()
         );
-      // Filter by course expiration date within range AND currently in grace period
       return isAfter(now, student.endDate) && isBefore(now, graceEndDate) && !hasRenewal &&
         student.endDate >= startDate && student.endDate <= endDate;
     });
@@ -438,12 +389,22 @@ export class UnifiedDataProcessor {
   }
 
   static getMultiActivityStudents(students: Student[], dateRange: DateRange): StudentWithLTV[] {
-    const filtered = this.filterStudentsByDateRange(students, dateRange);
+    const startDate = new Date(dateRange.startDate);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(dateRange.endDate);
+    endDate.setHours(23, 59, 59, 999);
+    
+    const enrollmentStudents = students.filter(student => 
+      student.enrollmentDate >= startDate && 
+      student.enrollmentDate <= endDate &&
+      (student.source === 'FormResponses1' || student.source === 'OldFormResponses1' || student.source === 'RazorpayEnrollments')
+    );
+    
     const studentActivityMap = new Map<string, Set<string>>();
     const studentDataMap = new Map<string, Student>();
     
     // Collect all unique activities per student ID
-    filtered.forEach(student => {
+    enrollmentStudents.forEach(student => {
       if (!studentActivityMap.has(student.id)) {
         studentActivityMap.set(student.id, new Set());
         studentDataMap.set(student.id, student); // Store one instance of student data
@@ -470,7 +431,7 @@ export class UnifiedDataProcessor {
       .map(([studentId, _]) => studentId);
     
     // Return all enrollment records for multi-activity students
-    const multiActivityStudents = filtered.filter(student => 
+    const multiActivityStudents = enrollmentStudents.filter(student => 
       multiActivityStudentIds.includes(student.id)
     );
     

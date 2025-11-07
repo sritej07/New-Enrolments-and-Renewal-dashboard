@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Mail, Phone, Calendar, Package, DollarSign, Hash, IndianRupee, RefreshCw } from 'lucide-react';
+import { X, Mail, Phone, Calendar, Package, DollarSign, Hash, IndianRupee } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import { StudentWithLTV } from '../types/UnifiedTypes';
 
@@ -126,7 +126,6 @@ export const UnifiedStudentModal: React.FC<UnifiedStudentModalProps> = ({
                         </div>
                         <p className="text-sm text-gray-600">{student.activities.join(', ')}</p>
                       </div>
-                      {getStatusBadge(student)}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
@@ -174,12 +173,6 @@ export const UnifiedStudentModal: React.FC<UnifiedStudentModalProps> = ({
                         </span>
                       </div>
 
-                      <div className="flex items-center space-x-2">
-                        <RefreshCw size={16} className="text-blue-400" />
-                        <span className="text-gray-600">
-                          Renewals: {student.renewalCount || 0}
-                        </span>
-                      </div>
                       {student.renewalDates?.map((date, idx) => (
                         <div key={idx} className="flex items-center space-x-2">
                           <Calendar size={16} className="text-green-500" />
