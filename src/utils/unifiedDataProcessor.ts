@@ -108,6 +108,11 @@ export class UnifiedDataProcessor {
     
     console.log(`⏳ In Grace Students: ${inGraceStudents.length}`);
 
+    // Count multi-activity students
+    const multiActivityStudents = Array.from(studentActivityMap.values())
+      .filter(activities => activities.size > 1)
+      .length;
+
     // Calculate percentages
     const renewalPercentage = eligibleRenewals > 0 
       ? (totalRenewals / eligibleRenewals) * 100 
