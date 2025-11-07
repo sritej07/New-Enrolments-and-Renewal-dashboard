@@ -487,4 +487,73 @@ export class UnifiedDataProcessor {
   static getTopActivities(students: Student[], limit: number = 5): ActivityData[] {
     return this.getActivityEnrollments(students).slice(0, limit);
   }
+
+  // New methods for metrics independent of date filter
+  static getTodayEnrollments(students: Student[]): StudentWithLTV[] {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+    
+    const todayEnrollments = students.filter(student => {
+      const enrollmentDate = new Date(student.enrollmentDate);
+      return enrollmentDate >= today && 
+             enrollmentDate <= todayEnd &&
+             (student.source === 'FormResponses1' || student.source === 'OldFormResponses1' || student.source === 'RazorpayEnrollments');
+    });
+    
+    return this.getStudentsWithLTV(todayEnrollments);
+  }
+
+  static getTodayRenewals(students: Student[]): StudentWithLTV[] {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+    
+    const todayRenewals = students.filter(student => {
+      const enrollmentDate = new Date(student.enrollmentDate);
+      return enrollmentDate >= today && 
+             enrollmentDate <= todayEnd &&
+             (student.source === 'Renewal' || student.source === 'HistoricalRenewal' || student.source === 'RazorpayRenewals');
+    });
+    
+    return this.getStudentsWithLTV(todayRenewals);
+  }
+
+  static getCurrentlyActiveStudents(students: Student[]): StudentWithLTV[] {
+    const now = new Date();
+    
+    // Get unique students by ID to avoid duplicates
+    const studentMap = new Map<string, Student>();
+    
+    students.forEach(student => {
+      // Only keep the latest record for each student
+      if (!studentMap.has(student.id) || 
+          (studentMap.get(student.id)!.enrollmentDate < student.enrollmentDate)) {
+        studentMap.set(student.id, student);
+      }
+    });
+    
+    const uniqueStudents = Array.from(studentMap.values());
+    
+    const activeStudents = uniqueStudents.filter(student => {
+      if (!student.endDate) return false;
+      
+      const graceEndDate = addDays(student.endDate, 45);
+      const hasRenewal = student.renewalDates && student.renewalDates.length > 0 &&
+        student.renewalDates.some(renewalDate => 
+          isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime()
+        );
+      
+      // Active if: endDate > now (not expired yet)
+      // OR: currently in grace period (endDate < now < graceEndDate) AND no renewal
+      const isActiveNotExpired = isAfter(student.endDate, now);
+      const isInGracePeriod = isAfter(now, student.endDate) && isBefore(now, graceEndDate) && !hasRenewal;
+      
+      return isActiveNotExpired || isInGracePeriod;
+    });
+    
+    return this.getStudentsWithLTV(activeStudents);
+  }
 }
