@@ -81,6 +81,8 @@ export class UnifiedDataProcessor {
         activities.add(student.activity.trim());
       }
     });
+    
+    const now = new Date();
     const churnedStudents = students.filter(student => {
       if (!student.endDate) return false;
       const graceEndDate = addDays(student.endDate, 45);
