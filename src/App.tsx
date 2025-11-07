@@ -197,6 +197,33 @@ function App() {
           </div>
         </div>
 
+        {/* Today's Metrics (Independent of Date Filter) */}
+        {todayMetrics && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <ClickableMetricCard
+              title="Today's Enrolments"
+              value={todayMetrics.todayEnrollments.length.toLocaleString()}
+              icon={UserPlus}
+              iconColor="text-green-600"
+              onClick={() => openModal("Today's Enrolments", todayMetrics.todayEnrollments)}
+            />
+            <ClickableMetricCard
+              title="Today's Renewals"
+              value={todayMetrics.todayRenewals.length.toLocaleString()}
+              icon={RefreshCw}
+              iconColor="text-blue-600"
+              onClick={() => openModal("Today's Renewals", todayMetrics.todayRenewals)}
+            />
+            <ClickableMetricCard
+              title="Currently Active Students"
+              value={todayMetrics.currentlyActive.length.toLocaleString()}
+              icon={Users}
+              iconColor="text-purple-600"
+              onClick={() => openModal('Currently Active Students', todayMetrics.currentlyActive)}
+            />
+          </div>
+        )}
+
         {/* Date Range Filter */}
         <DateRangeFilter
           dateRange={dateRange}
