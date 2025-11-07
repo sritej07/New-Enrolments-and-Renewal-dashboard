@@ -43,6 +43,17 @@ function App() {
     students: []
   });
 
+  // Calculate today's metrics (independent of date filter)
+  const todayMetrics = useMemo(() => {
+    if (!students.length) return null;
+    
+    return {
+      todayEnrollments: UnifiedDataProcessor.getTodayEnrollments(students),
+      todayRenewals: UnifiedDataProcessor.getTodayRenewals(students),
+      currentlyActive: UnifiedDataProcessor.getCurrentlyActiveStudents(students)
+    };
+  }, [students]);
+
   const dashboardData = useMemo(() => {
     if (!students.length) return null;
 
