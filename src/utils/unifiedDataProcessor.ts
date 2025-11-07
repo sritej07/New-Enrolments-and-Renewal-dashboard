@@ -23,6 +23,13 @@ export class UnifiedDataProcessor {
     console.log(`📅 Date Range: ${dateRange.startDate.toDateString()} to ${dateRange.endDate.toDateString()}`);
     console.log(`👥 Total Students: ${students.length}`);
     
+    // Define processed date range variables at function scope
+    const processedStartDate = new Date(dateRange.startDate);
+    processedStartDate.setHours(0, 0, 0, 0);
+    
+    const processedEndDate = new Date(dateRange.endDate);
+    processedEndDate.setHours(23, 59, 59, 999);
+    
     const newEnrollments = this.filterStudentsByDateRange(students, dateRange).length;
     console.log(`🆕 New Enrollments: ${newEnrollments}`);
     
@@ -103,7 +110,7 @@ export class UnifiedDataProcessor {
       // Count renewals that fall within the selected date range and are within grace period
       const validRenewals = student.renewalDates.filter(renewalDate => 
         (isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime()) &&
-        renewalDate >= startDate && renewalDate <= endDate
+        renewalDate >= processedStartDate && renewalDate <= processedEndDate
       );
       
       return total + validRenewals.length;
