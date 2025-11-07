@@ -96,14 +96,14 @@ export class UnifiedDataProcessor {
 
     // Calculate total renewals (count all renewal instances, not unique students)
     const totalRenewals = students.reduce((total, student) => {
-      if (!student.renewalDates || student.renewalDates.length === 0) return false;
-      if (!student.endDate) return false;
+      if (!student.renewalDates || student.renewalDates.length === 0) return total;
+      if (!student.endDate) return total;
       const graceEndDate = addDays(student.endDate, 45);
       
       // Count renewals that fall within the selected date range and are within grace period
       const validRenewals = student.renewalDates.filter(renewalDate => 
         (isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime()) &&
-        renewalDate >= dateRange.startDate && renewalDate <= dateRange.endDate
+        renewalDate >= startDate && renewalDate <= endDate
       );
       
       return total + validRenewals.length;
