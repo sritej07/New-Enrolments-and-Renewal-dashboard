@@ -176,9 +176,9 @@ export const RenewalModal: React.FC<UnifiedStudentModalProps> = ({
 
                                             {student.renewalDate && (
                                                 <div className="flex items-center space-x-2">
-                                                    <Calendar size={16} className="text-red-400" />
+                                                    <Calendar size={16} className="text-green-400" />
                                                     <span className="text-gray-600">
-                                                        Renewal Date: {formatDate(student.renewalDate)}
+                                                        Renewed Date: {formatDate(student.renewalDate)}
                                                     </span>
                                                 </div>
                                             )}

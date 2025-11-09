@@ -215,6 +215,7 @@ export class GoogleSheetsService {
         if (!student.renewalDates.some((d) => d.getTime() === renewalDate.getTime())) {
           student.renewalDates.push(renewalDate);
         }
+        if(endDate) student.endDate = endDate;
         if (renewalFees > 0) student.fees = (student.fees || 0) + renewalFees;
       } else {
         unmatchedRenewalCount++;
