@@ -1,5 +1,6 @@
 import axios from "axios";
 import { Student } from "../types/Student";
+import {RenewalRecord} from "../types/Student";
 
 const GOOGLE_SHEETS_API_KEY = import.meta.env.VITE_GOOGLE_SHEETS_API_KEY;
 const SHEET_ID = import.meta.env.VITE_GOOGLE_SHEET_ID;
@@ -79,13 +80,21 @@ export class GoogleSheetsService {
     return { enrollmentData, renewalData };
   }
 
-  parseStudentData(enrollmentData: any[][], renewalData: any[][]): Student[] {
+  parseStudentData(
+    enrollmentData: any[][],
+    renewalData: any[][]
+  ): {
+    parsedStudents: Student[];
+    renewalRecords: RenewalRecord[];
+  } {
     if (enrollmentData.length < 2) {
       this.log("⚠️ Enrollment sheet is empty or missing headers.");
-      return [];
+      return { parsedStudents: [], renewalRecords: [] };
     }
 
     const studentMap: Map<string, Student> = new Map();
+    const renewalRecords: RenewalRecord[] = [];
+
     const normalizeId = (id: string) => id?.trim().toLowerCase().replace(/\s+/g, "") || "";
 
     const missingIdRows: { id: string; name: string; source: string }[] = [];
@@ -100,6 +109,9 @@ export class GoogleSheetsService {
 
     this.log(`📊 Parsing ${enrollmentData.length - 1} enrollment rows...`);
 
+    // ============================
+    // ENROLLMENT PARSING
+    // ============================
     for (let i = 1; i < enrollmentData.length; i++) {
       const row = enrollmentData[i];
       if (!row || row.length === 0) continue;
@@ -158,7 +170,9 @@ export class GoogleSheetsService {
       });
     }
 
-    // ✅ Process Renewals
+    // ============================
+    // RENEWAL PARSING
+    // ============================
     for (let i = 1; i < renewalData.length; i++) {
       const row = renewalData[i];
       if (!row || row.length === 0) continue;
@@ -167,7 +181,23 @@ export class GoogleSheetsService {
       const rawId = row[20];
       const studentId = normalizeId(rawId) || `renewal-${i}`;
       const renewalDate = this.parseDate(row[7]);
+      const endDate = this.parseDate(row[16]);
       const renewalFees = row[9] ? parseFloat(row[9].replace(/[$,₹]/g, "")) : 0;
+
+      // ✅ Always record renewal (even if duplicate)
+    
+      renewalRecords.push({
+        id: studentId,
+        name: row[2] || "Unknown",
+        renewalDate,
+        endDate,
+        fees: renewalFees,
+        source,
+        activities: row[6] || "",
+        email: row[1] || undefined,
+        phone: row[4] || undefined,
+        package: row[5] || undefined,
+      });
 
       if (!renewalDate) {
         invalidDateCount++;
@@ -192,44 +222,24 @@ export class GoogleSheetsService {
       }
     }
 
-    // ✅ Log Summary
+    // ============================
+    // LOG SUMMARY
+    // ============================
     this.log(`✅ Parsing Summary:
-    • Total Students: ${studentMap.size}
-    • Missing IDs: ${missingIdCount}
-    • Invalid Dates: ${invalidDateCount}
-    • Duplicates: ${duplicateCount}
-    • Unmatched Renewals: ${unmatchedRenewalCount}
-    `);
+  • Total Students: ${studentMap.size}
+  • Total Renewals (incl. duplicates): ${renewalRecords.length}
+  • Missing IDs: ${missingIdCount}
+  • Invalid Dates: ${invalidDateCount}
+  • Duplicates: ${duplicateCount}
+  • Unmatched Renewals: ${unmatchedRenewalCount}
+  `);
 
-    if (missingIdRows.length) {
-      this.log("\n⚠️ Missing IDs:");
-      missingIdRows.forEach((s) =>
-        this.log(`→ ${s.id} | Name: ${s.name} | Source: ${s.source}`)
-      );
-    }
-
-    if (duplicateStudents.length) {
-      this.log("\n⚠️ Duplicate Students:");
-      duplicateStudents.forEach((s) => this.log(`→ ${s.id} | Source: ${s.source}`));
-    }
-
-    if (invalidDateRows.length) {
-      this.log("\n⚠️ Invalid Dates:");
-      invalidDateRows.forEach((s) =>
-        this.log(`→ ${s.id} | Name: ${s.name} | Source: ${s.source} | Dates: ${s.date}`)
-      );
-    }
-
-    if (unmatchedRenewals.length) {
-      this.log("\n⚠️ Unmatched Renewals:");
-      unmatchedRenewals.forEach((r) =>
-        this.log(`→ Row ${r.row} | ID: ${r.id} | Source: ${r.source}`)
-      );
-    }
-
-    //this.exportLogs();
-    return Array.from(studentMap.values());
+    return {
+      parsedStudents: Array.from(studentMap.values()),
+      renewalRecords,
+    };
   }
+
 
   private exportLogs() {
     const blob = new Blob([this.debugLogs.join("\n")], { type: "text/plain" });

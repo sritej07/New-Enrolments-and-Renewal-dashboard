@@ -50,6 +50,7 @@ export interface StudentWithLTV extends Student {
   lifetimeValue: number;
   studentId?: string;
   renewalCount?: number;
+  source?: string;
 }
 
 export interface TrendData {
