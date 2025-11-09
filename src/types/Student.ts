@@ -15,6 +15,18 @@ export interface Student {
   package?: string;
   source?: string; // Track data source (FormResponses1, RazorpayEnrollments, etc.)
 }
+export interface RenewalRecord {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  activities: string;
+  renewalDate: Date | undefined;
+  endDate?: Date;
+  package?: string;
+  fees: number;
+  source: string;
+}
 
 export interface EnrollmentData {
   month: string;

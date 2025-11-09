@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Student } from '../types/Student';
+import { RenewalRecord } from '../types/Student';
 import { googleSheetsService } from '../services/googleSheetsApi';
+
 
 export const useStudentData = () => {
   const [students, setStudents] = useState<Student[]>([]);
+  const [renewalRecords, setRenewalRecords] = useState<RenewalRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,10 +25,11 @@ export const useStudentData = () => {
 
       console.log('🔑 API key found, fetching real data...');
       const { enrollmentData, renewalData } = await googleSheetsService.fetchBothSheets();
-      const parsedStudents = googleSheetsService.parseStudentData(enrollmentData, renewalData);
+      const {parsedStudents, renewalRecords} = googleSheetsService.parseStudentData(enrollmentData, renewalData);
       
       console.log(`✅ Data fetch complete: ${parsedStudents.length} students processed`);
       setStudents(parsedStudents);
+      setRenewalRecords(renewalRecords);
       
     } catch (err) {
       console.error('❌ Error in fetchData:', err);
@@ -43,7 +47,7 @@ export const useStudentData = () => {
     fetchData();
   }, []);
 
-  return { students, loading, error, refetch: fetchData };
+  return { students, renewalRecords,loading, error, refetch: fetchData };
 };
 
 // Mock data for development

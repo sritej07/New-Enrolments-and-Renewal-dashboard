@@ -1,14 +1,14 @@
 import React, { useState, useMemo } from 'react';
-import { 
-  UserPlus, 
+import {
+  UserPlus,
   Users,
-  RefreshCw, 
-  TrendingUp, 
+  RefreshCw,
+  TrendingUp,
   TrendingDown,
   Activity,
   Clock,
   DollarSign,
-  IndianRupee 
+  IndianRupee
 } from 'lucide-react';
 import { useStudentData } from './hooks/useStudentData';
 import { UnifiedDataProcessor } from './utils/unifiedDataProcessor';
@@ -25,14 +25,16 @@ import { ErrorAlert } from './components/ErrorAlert';
 import { UnifiedStudentModal } from './components/UnifiedStudentModal';
 import { DateRange, StudentWithLTV } from './types/UnifiedTypes';
 import { subYears } from 'date-fns';
+import { RenewalModal } from './components/RenewalModal';
+import { RenewalRecord } from './types/Student';
 
 function App() {
-  const { students, loading, error, refetch } = useStudentData();
+  const { students, renewalRecords, loading, error, refetch } = useStudentData();
   const [dateRange, setDateRange] = useState<DateRange>({
     startDate: subYears(new Date(), 3),
     endDate: new Date()
   });
-  
+
   const [modalState, setModalState] = useState<{
     isOpen: boolean;
     title: string;
@@ -43,10 +45,31 @@ function App() {
     students: []
   });
 
+  const [renewalModalState, setRenewalModalState] = useState<{
+    isOpen: boolean;
+    title: string;
+    students: RenewalRecord[];
+  }>({
+    isOpen: false,
+    title: '',
+    students: []
+  });
+
+  // Calculate today's metrics (independent of date filter)
+  const todayMetrics = useMemo(() => {
+    if (!students.length) return null;
+
+    return {
+      todayEnrollments: UnifiedDataProcessor.getTodayEnrollments(students),
+      todayRenewals: UnifiedDataProcessor.getTodayRenewals(students),
+      currentlyActive: UnifiedDataProcessor.getCurrentlyActiveStudents(students)
+    };
+  }, [students]);
+
   const dashboardData = useMemo(() => {
     if (!students.length) return null;
 
-    const metrics = UnifiedDataProcessor.calculateUnifiedMetrics(students, dateRange);
+    const metrics = UnifiedDataProcessor.calculateUnifiedMetrics(students, renewalRecords, dateRange);
     const monthlyData = UnifiedDataProcessor.calculateMonthlyTrends(students, 12);
     const trendData = UnifiedDataProcessor.calculateTrendData(students, 12);
     const topActivities = UnifiedDataProcessor.getActivityEnrollments(students).slice(0, 10);
@@ -138,6 +161,20 @@ function App() {
       students: []
     });
   };
+  const openRenewalModal = (title: string, studentList: RenewalRecord[]) => {
+    setRenewalModalState({
+      isOpen: true,
+      title,
+      students: studentList
+    });
+  };
+  const closeRenewalModal = () => {
+    setRenewalModalState({
+      isOpen: false,
+      title: '',
+      students: []
+    });
+  }
 
   if (loading) {
     return <LoadingSpinner />;
@@ -159,11 +196,11 @@ function App() {
     );
   }
 
-  const { 
-    metrics, 
+  const {
+    metrics,
     trendData,
-    enrollmentChartData, 
-    activityBarData, 
+    enrollmentChartData,
+    activityBarData,
     multiActivityData,
     topActivities,
     highChurnActivities
@@ -172,7 +209,7 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-50">
       {error && <ErrorAlert message={error} />}
-      
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
@@ -185,6 +222,33 @@ function App() {
             </p>
           </div>
         </div>
+
+        {/* Today's Metrics (Independent of Date Filter) */}
+        {todayMetrics && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <ClickableMetricCard
+              title="Today's Enrolments"
+              value={todayMetrics.todayEnrollments.length.toLocaleString()}
+              icon={UserPlus}
+              iconColor="text-green-600"
+              onClick={() => openModal("Today's Enrolments", todayMetrics.todayEnrollments)}
+            />
+            <ClickableMetricCard
+              title="Today's Renewals"
+              value={todayMetrics.todayRenewals.length.toLocaleString()}
+              icon={RefreshCw}
+              iconColor="text-blue-600"
+              onClick={() => openModal("Today's Renewals", todayMetrics.todayRenewals)}
+            />
+            <ClickableMetricCard
+              title="Currently Active Students"
+              value={todayMetrics.currentlyActive.length.toLocaleString()}
+              icon={Users}
+              iconColor="text-purple-600"
+              onClick={() => openModal('Currently Active Students', todayMetrics.currentlyActive)}
+            />
+          </div>
+        )}
 
         {/* Date Range Filter */}
         <DateRangeFilter
@@ -202,19 +266,19 @@ function App() {
             iconColor="text-green-600"
             onClick={() => openModal('New Enrollments', UnifiedDataProcessor.getNewEnrollments(students, dateRange))}
           />
-          <ClickableMetricCard
+          {/* <ClickableMetricCard
             title="Eligible Renewals"
             value={metrics.eligibleStudents.toLocaleString()}
             icon={Users}
             iconColor="text-yellow-600"
-            onClick={() => openModal('Eligible Students', UnifiedDataProcessor.getEligibleStudents(students, dateRange))}
-          />
+            // onClick={() => openModal('Eligible Students', UnifiedDataProcessor.getEligibleStudents(students, dateRange))}
+          /> */}
           <ClickableMetricCard
             title="Renewals"
             value={metrics.renewedStudents.toLocaleString()}
             icon={RefreshCw}
             iconColor="text-blue-600"
-            onClick={() => openModal('Renewed Students', UnifiedDataProcessor.getRenewedStudents(students, dateRange))}
+            onClick={() => openRenewalModal('Renewed Students', UnifiedDataProcessor.getRenewedStudents(renewalRecords, dateRange))}
           />
           <ClickableMetricCard
             title="Churned Students"
@@ -326,6 +390,12 @@ function App() {
           title={modalState.title}
           students={modalState.students}
         />
+        <RenewalModal
+          isOpen={renewalModalState.isOpen}
+          onClose={closeRenewalModal}
+          title={renewalModalState.title}
+          students={renewalModalState.students}
+        />
 
         {/* Footer */}
         <div className="mt-12 text-center text-gray-500 text-sm">
@@ -335,5 +405,7 @@ function App() {
     </div>
   );
 }
+
+
 
 export default App;
