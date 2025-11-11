@@ -1,4 +1,5 @@
 import axios from "axios";
+import { parse } from "date-fns";
 import { Student } from "../types/Student";
 import {RenewalRecord} from "../types/Student";
 
@@ -262,28 +263,38 @@ export class GoogleSheetsService {
     return activitiesStr.split(",").map((a) => a.trim()).filter(Boolean);
   }
 
-  private parseDate(dateStr: any): Date {
-    if (!dateStr) return undefined as any;
+  private parseDate(dateStr: any): Date | undefined {
+    if (!dateStr) return undefined;
 
     // Handle Google Sheets numeric date serial
     if (!isNaN(dateStr) && typeof dateStr === "number") {
       return new Date(Math.round((dateStr - 25569) * 86400 * 1000));
     }
 
-    // Normalize string
     const str = dateStr.toString().trim();
 
-    // Match DD-MM-YYYY or DD/MM/YYYY
-    const match = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
-    if (match) {
-      const [_, day, month, year] = match;
-      const yyyy = year.length === 2 ? `20${year}` : year; // support 2-digit year
-      return new Date(`${yyyy}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`);
+    // Define possible date formats to try, from most to least specific
+    const formats = [
+      "MM/dd/yyyy", // 11/02/2025 -> Nov 2
+      "M/d/yyyy",   // 11/2/2025 -> Nov 2
+      "dd-MM-yyyy", // 08-10-2025 -> Oct 8
+      "d-M-yyyy",   // 8-10-2025 -> Oct 8
+      "yyyy-MM-dd", // ISO format
+      "PP",         // Fallback for localized formats like "Oct 8, 2025"
+    ];
+
+    const referenceDate = new Date();
+
+    for (const format of formats) {
+      const parsedDate = parse(str, format, referenceDate);
+      if (!isNaN(parsedDate.getTime())) {
+        return parsedDate;
+      }
     }
 
-    // Fallback for already valid ISO or US formats
-    const parsed = new Date(str);
-    return isNaN(parsed.getTime()) ? undefined as any : parsed;
+    // Final fallback for other native formats (e.g., ISO with time)
+    const finalParsed = new Date(str);
+    return isNaN(finalParsed.getTime()) ? undefined : finalParsed;
   }
 
 }

@@ -151,12 +151,14 @@ export const RenewalModal: React.FC<UnifiedStudentModalProps> = ({
                                                 </div>
                                             )}
 
-                                            <div className="flex items-center space-x-2">
-                                                <Calendar size={16} className="text-gray-400" />
-                                                <span className="text-gray-600">
-                                                    Enrolled: {formatDate(student.renewalDate)}
-                                                </span>
-                                            </div>
+                                            {student.renewalDate && (
+                                                <div className="flex items-center space-x-2">
+                                                    <Calendar size={16} className="text-green-400" />
+                                                    <span className="text-gray-600">
+                                                        Renewed Date: {formatDate(student.renewalDate)}
+                                                    </span>
+                                                </div>
+                                            )}
 
                                             {student.endDate && (
                                                 <div className="flex items-center space-x-2">
@@ -174,14 +176,7 @@ export const RenewalModal: React.FC<UnifiedStudentModalProps> = ({
                                                 </span>
                                             </div>
 
-                                            {student.renewalDate && (
-                                                <div className="flex items-center space-x-2">
-                                                    <Calendar size={16} className="text-green-400" />
-                                                    <span className="text-gray-600">
-                                                        Renewed Date: {formatDate(student.renewalDate)}
-                                                    </span>
-                                                </div>
-                                            )}
+                                            
                                         </div>
                                     </div>
                                 ))}
