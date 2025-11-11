@@ -92,15 +92,25 @@ export class UnifiedDataProcessor {
     const now = new Date();
     const churnedStudents = students.filter(student => {
       if (!student.endDate) return false;
+
       const graceEndDate = addDays(student.endDate, 45);
-      const hasRenewal = student.renewalDates && student.renewalDates.length > 0 &&
-        student.renewalDates.some(renewalDate =>
-          isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime()
-        );
-      return isAfter(now, graceEndDate) && !hasRenewal &&
-        student.endDate >= startDate && student.endDate <= endDate;
+      const latestRenewal = student.renewalDates?.length
+        ? new Date(Math.max(...student.renewalDates.map(d => d.getTime())))
+        : null;
+
+      // Renewal valid only if after end date (i.e., actual extension)
+      const hasValidRenewal = latestRenewal && isAfter(latestRenewal, student.endDate);
+
+      // Churn if grace expired and no valid renewal
+      return (
+        isAfter(now, graceEndDate) &&
+        !hasValidRenewal &&
+        student.endDate >= startDate &&
+        student.endDate <= endDate
+      )
     });
-    console.log(`❌ Churned Students: ${churnedStudents.length}`);
+
+    console.log(`❌ Churned Students: ${churnedStudents.length} `);
 
     const inGraceStudents = students.filter(student => {
       if (!student.endDate) return false;
@@ -113,7 +123,7 @@ export class UnifiedDataProcessor {
         student.endDate >= startDate && student.endDate <= endDate;
     });
 
-    console.log(`⏳ In Grace Students: ${inGraceStudents.length}`);
+    console.log(`⏳ In Grace Students: ${inGraceStudents.length} `);
 
     // Count multi-activity students
     const multiActivityStudents = Array.from(studentActivityMap.values())
@@ -370,19 +380,30 @@ export class UnifiedDataProcessor {
     const now = new Date();
     const churned = students.filter(student => {
       if (!student.endDate) return false;
+
       const graceEndDate = addDays(student.endDate, 45);
-      const hasRenewal = student.renewalDates && student.renewalDates.length > 0 &&
-        student.renewalDates.some(renewalDate =>
-          isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime()
-        );
-      return isAfter(now, graceEndDate) && !hasRenewal &&
-        student.endDate >= startDate && student.endDate <= endDate;
+      const latestRenewal = student.renewalDates?.length
+        ? new Date(Math.max(...student.renewalDates.map(d => d.getTime())))
+        : null;
+
+      // Renewal valid only if after end date (i.e., actual extension)
+      const hasValidRenewal = latestRenewal && isAfter(latestRenewal, student.endDate);
+
+      // Churn if grace expired and no valid renewal
+      return (
+        isAfter(now, graceEndDate) &&
+        !hasValidRenewal &&
+        student.endDate >= startDate &&
+        student.endDate <= endDate
+      );
     });
+
     return this.getStudentsWithLTV(churned).map(student => ({
       ...student,
-      isActive: false // Mark churned students as inactive
+      isActive: false
     }));
   }
+
 
   static getInGraceStudents(students: Student[], dateRange: DateRange): StudentWithLTV[] {
     const now = new Date();
@@ -555,20 +576,20 @@ export class UnifiedDataProcessor {
 
     const activeStudents = uniqueStudents.filter(student => {
       let isActiveNotExpired;
-      let isInGracePeriod ;
-      if (student.endDate){
+      let isInGracePeriod;
+      if (student.endDate) {
         const graceEndDate = addDays(student.endDate, 45);
         const hasRenewal = student.renewalDates && student.renewalDates.length > 0 &&
           student.renewalDates.some(renewalDate =>
             isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime()
           );
-          
-          // Active if: endDate > now (not expired yet)
-          // OR: currently in grace period (endDate < now < graceEndDate) AND no renewal
-          isActiveNotExpired = isAfter(student.endDate, now);
-          isInGracePeriod = isAfter(now, student.endDate) && isBefore(now, graceEndDate) && !hasRenewal;
-        }
-        const hasLTV = student.package && student.package.includes('LTV');
+
+        // Active if: endDate > now (not expired yet)
+        // OR: currently in grace period (endDate < now < graceEndDate) AND no renewal
+        isActiveNotExpired = isAfter(student.endDate, now);
+        isInGracePeriod = isAfter(now, student.endDate) && isBefore(now, graceEndDate) && !hasRenewal;
+      }
+      const hasLTV = student.package && student.package.includes('LTV');
 
 
       // Include students with "LTV" in their package name
