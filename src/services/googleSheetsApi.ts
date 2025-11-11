@@ -159,7 +159,7 @@ export class GoogleSheetsService {
         email: row[1] || undefined,
         phone: row[4] || undefined,
         activities,
-        enrollmentDate: startDate,
+        enrollmentDate: startDate ?? new Date(),
         endDate,
         renewalDates: [],
         isActive: !isStrikeOff,
