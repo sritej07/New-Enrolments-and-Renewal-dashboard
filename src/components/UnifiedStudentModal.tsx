@@ -173,14 +173,17 @@ export const UnifiedStudentModal: React.FC<UnifiedStudentModalProps> = ({
                         </span>
                       </div>
 
-                      {student.renewalDates?.map((date, idx) => (
-                        <div key={idx} className="flex items-center space-x-2">
-                          <Calendar size={16} className="text-green-500" />
-                          <span className="text-gray-600">
-                            Renewed: {formatDate(new Date(date))}
-                          </span>
-                        </div>
-                      ))}
+                      {student.renewalDates
+                        ?.slice()
+                        .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+                        .map((date, idx) => (
+                          <div key={idx} className="flex items-center space-x-2">
+                            <Calendar size={16} className="text-green-500" />
+                            <span className="text-gray-600">
+                              Renewed: {formatDate(new Date(date))}
+                            </span>
+                          </div>
+                        ))}
                     </div>
                   </div>
                 ))}

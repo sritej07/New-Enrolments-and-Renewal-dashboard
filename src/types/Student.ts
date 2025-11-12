@@ -8,6 +8,8 @@ export interface Student {
   enrollmentDate: Date;
   renewalDates: Date[]; 
   endDate?: Date;
+  enrolledEndDate?: Date; // New field to track original end date
+  enrolledFees?: number; // New field to track original fees
   isActive: boolean;
   isStrikeOff: boolean;
   fees?: number;

@@ -161,6 +161,8 @@ export class GoogleSheetsService {
         activities,
         enrollmentDate: startDate ?? new Date(),
         endDate,
+        enrolledEndDate: endDate,
+        enrolledFees: row[9] ? parseFloat(row[9].replace(/[$,₹]/g, "")) : undefined,
         renewalDates: [],
         isActive: !isStrikeOff,
         isStrikeOff,
@@ -216,7 +218,9 @@ export class GoogleSheetsService {
         if (!student.renewalDates.some((d) => d.getTime() === renewalDate.getTime())) {
           student.renewalDates.push(renewalDate);
         }
-        if(endDate) student.endDate = endDate;
+        if (endDate && (!student.endDate || endDate > student.endDate)) {
+          student.endDate = endDate;
+        }
         if (renewalFees > 0) student.fees = (student.fees || 0) + renewalFees;
       } else {
         unmatchedRenewalCount++;

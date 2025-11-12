@@ -48,8 +48,8 @@ export class UnifiedDataProcessor {
 
     // Eligible Renewals: Students whose end date falls within the date range
     const eligibleRenewals_Enrollment = students.filter(student => {
-      if (!student.endDate) return false;
-      return student.endDate >= startDate && student.endDate <= endDate;
+      if (!student.enrolledEndDate) return false;
+      return student.enrolledEndDate >= startDate && student.enrolledEndDate <= endDate;
     }).length;
     const eligibleRenewals_Renewal = renewalStudents.filter(student => {
       if (!student.endDate) return false;
@@ -342,17 +342,36 @@ export class UnifiedDataProcessor {
     return this.getStudentsWithLTV(enrollments);
   }
 
-  static getEligibleStudents(students: Student[], dateRange: DateRange): StudentWithLTV[] {
+  static getEligibleStudents(students: Student[], renewalStudents: RenewalRecord[], dateRange: DateRange): RenewalRecord[] {
     const startDate = new Date(dateRange.startDate);
     startDate.setHours(0, 0, 0, 0);
     const endDate = new Date(dateRange.endDate);
     endDate.setHours(23, 59, 59, 999);
 
-    const eligible = students.filter(student => {
+    // Eligible from original enrollments
+    const eligibleFromEnrollments: RenewalRecord[] = students.filter(student => {
+      if (!student.enrolledEndDate) return false;
+      return student.enrolledEndDate >= startDate && student.enrolledEndDate <= endDate;
+    }).map(student => ({
+      id: student.id,
+      name: student.name,
+      email: student.email,
+      phone: student.phone,
+      activities: student.activities.join(', '),
+      renewalDate: student.enrollmentDate, // Using enrolledEndDate as the key date
+      endDate: student.enrolledEndDate,
+      package: student.package,
+      fees: student.enrolledFees || 0,
+      source: student.source || 'Error'
+    }));
+
+    // Eligible from renewals
+    const eligibleFromRenewals = renewalStudents.filter(student => {
       if (!student.endDate) return false;
       return student.endDate >= startDate && student.endDate <= endDate;
     });
-    return this.getStudentsWithLTV(eligible);
+
+    return [...eligibleFromEnrollments, ...eligibleFromRenewals];
   }
 
   static getRenewedStudents(renewalStudents: RenewalRecord[], dateRange: DateRange): RenewalRecord[] {
