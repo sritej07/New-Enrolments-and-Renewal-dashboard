@@ -38,6 +38,9 @@ export interface Student {
   activities: string[];
   activity?: string; // Single activity for this enrollment row
   enrollmentDate: Date;
+  enrolledEndDate?: Date;
+  enrolledFees?: number;
+  courseCategory?: string; // New field to track course category
   renewalDates: Date[]; 
   endDate?: Date;
   isActive: boolean;
@@ -51,6 +54,7 @@ export interface StudentWithLTV extends Student {
   studentId?: string;
   renewalCount?: number;
   source?: string;
+
 }
 
 export interface TrendData {

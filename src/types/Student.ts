@@ -5,6 +5,7 @@ export interface Student {
   phone?: string;
   activities: string[];
   activity?: string; // Single activity for this enrollment row
+  courseCategory?: string; // New field to track course category
   enrollmentDate: Date;
   renewalDates: Date[]; 
   endDate?: Date;
@@ -23,6 +24,7 @@ export interface RenewalRecord {
   email?: string;
   phone?: string;
   activities: string;
+  courseCategory?: string; // New field to track course category
   renewalDate: Date | undefined;
   endDate?: Date;
   package?: string;

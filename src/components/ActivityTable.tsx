@@ -76,9 +76,9 @@ export const ActivityTable: React.FC<ActivityTableProps> = ({
                     <span className="text-sm text-gray-900 mr-2">
                       {activity.renewals}
                     </span>
-                    <div className="text-xs text-gray-500">
+                    {/* <div className="text-xs text-gray-500">
                       ({activity.enrollments > 0 ? Math.round((activity.renewals / activity.enrollments) * 100) : 0}%)
-                    </div>
+                    </div> */}
                   </div>
                 </td>
                 {showActiveStudents && (

@@ -125,7 +125,10 @@ export const RenewalModal: React.FC<UnifiedStudentModalProps> = ({
                                                         </span>
                                                     )}
                                                 </div>
-                                                <p className="text-sm text-gray-600">{student.activities}</p>
+                                                <p className="text-sm text-gray-600">
+                                                    {student.activities}
+                                                    {student.courseCategory && ` (${student.courseCategory})`}
+                                                </p>
                                             </div>
                                         </div>
 
@@ -155,7 +158,7 @@ export const RenewalModal: React.FC<UnifiedStudentModalProps> = ({
                                                 <div className="flex items-center space-x-2">
                                                     <Calendar size={16} className="text-green-400" />
                                                     <span className="text-gray-600">
-                                                        {student.source === 'RazorpayEnrollments' || student.source === 'FormResponses1' || student.source === 'OldFormResponses1'? 'Enrolled Date: ' : 'Renewal Date: '}
+                                                        {student.source === 'RazorpayEnrollments' || student.source === 'FormResponses1' || student.source === 'OldFormResponses1' ? 'Enrolled Date: ' : 'Renewal Date: '}
                                                         {formatDate(student.renewalDate)}
                                                     </span>
                                                 </div>

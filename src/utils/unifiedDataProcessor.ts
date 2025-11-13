@@ -1,4 +1,4 @@
-import { format, startOfMonth, endOfMonth, isWithinInterval, subMonths, addDays, isBefore, isAfter } from 'date-fns';
+import { format, startOfMonth, endOfMonth, isWithinInterval, subMonths, addDays, isBefore, isAfter, differenceInCalendarMonths, addMonths } from 'date-fns';
 import { RenewalRecord, Student } from '../types/Student';
 import { StudentWithLTV, UnifiedMetrics, MonthlyMetrics, TrendData, DateRange } from '../types/UnifiedTypes';
 import { ActivityData } from '../types/Student';
@@ -172,14 +172,17 @@ export class UnifiedDataProcessor {
     };
   }
 
-  static calculateMonthlyTrends(students: Student[], months: number = 12): MonthlyMetrics[] {
-    const endDate = new Date();
-    const startDate = subMonths(endDate, months);
+  static calculateMonthlyTrends(students: Student[], dateRange: DateRange): MonthlyMetrics[] {
+    const { startDate, endDate } = dateRange;
+
+    const rangeStart = startOfMonth(startDate);
+    const rangeEnd = endOfMonth(endDate);
+    const monthCount = differenceInCalendarMonths(rangeEnd, rangeStart) + 1;
 
     const monthlyData: MonthlyMetrics[] = [];
 
-    for (let i = 0; i < months; i++) {
-      const monthStart = subMonths(endDate, months - i - 1);
+    for (let i = 0; i < monthCount; i++) {
+      const monthStart = addMonths(rangeStart, i);
       const monthEnd = endOfMonth(monthStart);
       const prevMonthEnd = endOfMonth(subMonths(monthStart, 1));
 
@@ -254,8 +257,8 @@ export class UnifiedDataProcessor {
     return monthlyData;
   }
 
-  static calculateTrendData(students: Student[], months: number = 12): TrendData[] {
-    const monthlyMetrics = this.calculateMonthlyTrends(students, months);
+  static calculateTrendData(students: Student[], dateRange: DateRange): TrendData[] {
+    const monthlyMetrics = this.calculateMonthlyTrends(students, dateRange);
 
     return monthlyMetrics.map(metric => ({
       month: metric.month,
@@ -266,58 +269,169 @@ export class UnifiedDataProcessor {
     }));
   }
 
-  static getActivityChurnRates(students: Student[]): ActivityData[] {
-    const activityMap: Map<string, {
+  static getCourseCategoryEnrollments(students: Student[], dateRange: DateRange): Array<{ courseCategory: string; enrollments: number; renewals: number; dropRate: number }> {
+    const startDate = new Date(dateRange.startDate);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(dateRange.endDate);
+    endDate.setHours(23, 59, 59, 999);
+
+    const filteredStudents = students.filter(student =>
+      student.enrollmentDate >= startDate && student.enrollmentDate <= endDate
+    );
+    const categoryMap: Map<string, {
       enrollments: number;
+      renewals: number;
+      dropOffs: number;
+      studentIds: Set<string>;
+    }> = new Map();
+
+    filteredStudents.forEach(student => {
+      const category = student.courseCategory;
+      if (!category) return;
+
+      if (!categoryMap.has(category)) {
+        categoryMap.set(category, { enrollments: 0, renewals: 0, dropOffs: 0, studentIds: new Set() });
+      }
+
+      const data = categoryMap.get(category)!;
+      if (!data.studentIds.has(student.id)) {
+        data.studentIds.add(student.id);
+        data.enrollments++;
+
+        if (student.renewalDates && student.renewalDates.length > 0) {
+          data.renewals++;
+        }
+
+        if (student.isStrikeOff) {
+          data.dropOffs++;
+        }
+      }
+    });
+
+    return Array.from(categoryMap.entries())
+      .map(([courseCategory, data]) => ({
+        courseCategory,
+        enrollments: data.enrollments,
+        renewals: data.renewals,
+        dropRate: data.enrollments > 0
+          ? Math.round((data.dropOffs / data.enrollments) * 100 * 100) / 100
+          : 0
+      }))
+      .sort((a, b) => b.enrollments - a.enrollments);
+  }
+
+  static getCourseCategoryChurnRates(students: Student[], dateRange: DateRange): Array<{ courseCategory: string; enrollments: number; renewals: number; dropRate: number; activeStudents: number }> {
+    const startDate = new Date(dateRange.startDate);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(dateRange.endDate);
+    endDate.setHours(23, 59, 59, 999);
+
+    
+    const categoryMap: Map<string, {
+      studentIds: Set<string>;
       renewals: number;
       churned: number;
       active: number;
     }> = new Map();
 
     students.forEach(student => {
-      student.activities.forEach(activity => {
-        if (!activityMap.has(activity)) {
-          activityMap.set(activity, { enrollments: 0, renewals: 0, churned: 0, active: 0 });
-        }
+      const category = student.courseCategory;
+      if (!category) return;
 
-        const data = activityMap.get(activity)!;
-        data.enrollments++;
+      if (!categoryMap.has(category)) {
+        categoryMap.set(category, { studentIds: new Set(), renewals: 0, churned: 0, active: 0 });
+      }
+      const data = categoryMap.get(category)!;
 
-        // Check if student renewed
-        if (student.renewalDates && student.renewalDates.length > 0) {
-          data.renewals++;
-        }
+      if (data.studentIds.has(student.id)) return; // Process each student once per category
+      data.studentIds.add(student.id);
 
-        // Check if student churned
-        const now = new Date();
-        if (student.endDate) {
-          const graceEndDate = addDays(student.endDate, 45);
-          const hasRenewal = student.renewalDates && student.renewalDates.length > 0 &&
-            student.renewalDates.some(renewalDate => renewalDate <= graceEndDate);
+      
 
-          if (isAfter(now, graceEndDate) && !hasRenewal) {
-            data.churned++;
-          } else {
-            data.active++;
-          }
+      const now = new Date();
+      if (student.endDate) {
+         // Check if the student's end date falls within the selected range to be considered for churn
+        const isEligibleForChurn = student.endDate >= startDate && student.endDate <= endDate;
+        const graceEndDate = addDays(student.endDate, 45);
+        const hasRenewal = student.renewalDates?.some(renewalDate => renewalDate <= graceEndDate);
+        if (isEligibleForChurn && isAfter(now, graceEndDate) && !hasRenewal) {
+          data.churned++;
         } else {
           data.active++;
         }
-      });
+        if (student.renewalDates && student.renewalDates.length > 0) {
+          data.renewals++;
+        }
+      } else {
+        data.active++;
+      }
     });
 
-    return Array.from(activityMap.entries())
-      .map(([activity, data]) => ({
-        activity,
-        enrollments: data.enrollments,
+    return Array.from(categoryMap.entries())
+      .map(([courseCategory, data]) => ({
+        courseCategory,
+        enrollments: data.studentIds.size,
         renewals: data.renewals,
-        dropRate: data.enrollments > 0
-          ? Math.round((data.churned / data.enrollments) * 100 * 10) / 10
-          : 0,
+        dropRate: data.churned > 0 ? Math.round((data.churned / data.studentIds.size) * 100 * 10) / 10 : 0,
         activeStudents: data.active
       }))
       .sort((a, b) => b.dropRate - a.dropRate);
   }
+
+  
+
+  // static getActivityChurnRates(students: Student[]): ActivityData[] {
+  //   const activityMap: Map<string, {
+  //     enrollments: number;
+  //     renewals: number;
+  //     churned: number;
+  //     active: number;
+  //   }> = new Map();
+
+  //   students.forEach(student => {
+  //     student.activities.forEach(activity => {
+  //       if (!activityMap.has(activity)) {
+  //         activityMap.set(activity, { enrollments: 0, renewals: 0, churned: 0, active: 0 });
+  //       }
+
+  //       const data = activityMap.get(activity)!;
+  //       data.enrollments++;
+
+  //       // Check if student renewed
+  //       if (student.renewalDates && student.renewalDates.length > 0) {
+  //         data.renewals++;
+  //       }
+
+  //       // Check if student churned
+  //       const now = new Date();
+  //       if (student.endDate) {
+  //         const graceEndDate = addDays(student.endDate, 45);
+  //         const hasRenewal = student.renewalDates && student.renewalDates.length > 0 &&
+  //           student.renewalDates.some(renewalDate => renewalDate <= graceEndDate);
+
+  //         if (isAfter(now, graceEndDate) && !hasRenewal) {
+  //           data.churned++;
+  //         } else {
+  //           data.active++;
+  //         }
+  //       } else {
+  //         data.active++;
+  //       }
+  //     });
+  //   });
+
+  //   return Array.from(activityMap.entries())
+  //     .map(([activity, data]) => ({
+  //       activity,
+  //       enrollments: data.enrollments,
+  //       renewals: data.renewals,
+  //       dropRate: data.enrollments > 0
+  //         ? Math.round((data.churned / data.enrollments) * 100 * 10) / 10
+  //         : 0,
+  //       activeStudents: data.active
+  //     }))
+  //     .sort((a, b) => b.dropRate - a.dropRate);
+  // }
 
   static getStudentsWithLTV(students: Student[]): StudentWithLTV[] {
     return students.map(student => ({
@@ -358,6 +472,7 @@ export class UnifiedDataProcessor {
       email: student.email,
       phone: student.phone,
       activities: student.activities.join(', '),
+      courseCategory: student.courseCategory,
       renewalDate: student.enrollmentDate, // Using enrolledEndDate as the key date
       endDate: student.enrolledEndDate,
       package: student.package,
@@ -501,48 +616,84 @@ export class UnifiedDataProcessor {
     return this.getStudentsWithLTV(filtered);
   }
 
-  static getActivityEnrollments(students: Student[]): ActivityData[] {
-    const activityMap: Map<string, {
-      enrollments: number;
-      renewals: number;
-      dropOffs: number;
-    }> = new Map();
 
-    students.forEach(student => {
-      student.activities.forEach(activity => {
-        if (!activityMap.has(activity)) {
-          activityMap.set(activity, { enrollments: 0, renewals: 0, dropOffs: 0 });
-        }
+  static getEnrolledStudentsByCourseCategory(students: Student[], categoryName: string, dateRange: DateRange): StudentWithLTV[] {
+    const startDate = new Date(dateRange.startDate);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(dateRange.endDate);
+    endDate.setHours(23, 59, 59, 999);
 
-        const data = activityMap.get(activity)!;
-        data.enrollments++;
+    const filtered = students.filter(student =>
+      student.courseCategory === categoryName &&
+      student.enrollmentDate >= startDate &&
+      student.enrollmentDate <= endDate
+    );
+    return this.getStudentsWithLTV(filtered);
+  }
 
-        // Count all renewals
-        if (student.renewalDates && student.renewalDates.length > 0) {
-          data.renewals += student.renewalDates.length;
-        }
+  static getChurnedStudentsByCourseCategory(students: Student[], categoryName: string, dateRange: DateRange): StudentWithLTV[] {
+    const startDate = new Date(dateRange.startDate);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(dateRange.endDate);
+    endDate.setHours(23, 59, 59, 999);
 
-        if (student.isStrikeOff) {
-          data.dropOffs++;
-        }
-      });
+    const now = new Date();
+    const filtered = students.filter(student => {
+      if (student.courseCategory !== categoryName || !student.endDate) return false;
+
+      // Filter by endDate within the date range
+      if (!(student.endDate >= startDate && student.endDate <= endDate)) return false;
+
+      // Apply churn logic
+      const graceEndDate = addDays(student.endDate, 45);
+      const hasRenewal = student.renewalDates?.some(renewalDate => renewalDate <= graceEndDate);
+      return isAfter(now, graceEndDate) && !hasRenewal;
     });
-
-    return Array.from(activityMap.entries())
-      .map(([activity, data]) => ({
-        activity,
-        enrollments: data.enrollments,
-        renewals: data.renewals,
-        dropRate: data.enrollments > 0
-          ? Math.round((data.dropOffs / data.enrollments) * 100 * 100) / 100
-          : 0
-      }))
-      .sort((a, b) => b.enrollments - a.enrollments);
+    return this.getStudentsWithLTV(filtered);
   }
 
-  static getTopActivities(students: Student[], limit: number = 5): ActivityData[] {
-    return this.getActivityEnrollments(students).slice(0, limit);
-  }
+  // static getActivityEnrollments(students: Student[]): ActivityData[] {
+  //   const activityMap: Map<string, {
+  //     enrollments: number;
+  //     renewals: number;
+  //     dropOffs: number;
+  //   }> = new Map();
+
+  //   students.forEach(student => {
+  //     student.activities.forEach(activity => {
+  //       if (!activityMap.has(activity)) {
+  //         activityMap.set(activity, { enrollments: 0, renewals: 0, dropOffs: 0 });
+  //       }
+
+  //       const data = activityMap.get(activity)!;
+  //       data.enrollments++;
+
+  //       // Count all renewals
+  //       if (student.renewalDates && student.renewalDates.length > 0) {
+  //         data.renewals += student.renewalDates.length;
+  //       }
+
+  //       if (student.isStrikeOff) {
+  //         data.dropOffs++;
+  //       }
+  //     });
+  //   });
+
+  //   return Array.from(activityMap.entries())
+  //     .map(([activity, data]) => ({
+  //       activity,
+  //       enrollments: data.enrollments,
+  //       renewals: data.renewals,
+  //       dropRate: data.enrollments > 0
+  //         ? Math.round((data.dropOffs / data.enrollments) * 100 * 100) / 100
+  //         : 0
+  //     }))
+  //     .sort((a, b) => b.enrollments - a.enrollments);
+  // }
+
+  // static getTopActivities(students: Student[], limit: number = 5): ActivityData[] {
+  //   return this.getActivityEnrollments(students).slice(0, limit);
+  // }
 
   // New methods for metrics independent of date filter
   static getTodayEnrollments(students: Student[]): StudentWithLTV[] {
@@ -559,6 +710,41 @@ export class UnifiedDataProcessor {
     });
 
     return this.getStudentsWithLTV(todayEnrollments);
+  }
+
+  static getEnrollmentsForLastNDays(students: Student[], days: number): StudentWithLTV[] {
+    const endDate = new Date();
+    endDate.setHours(23, 59, 59, 999);
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - (days - 1));
+    startDate.setHours(0, 0, 0, 0);
+
+    const enrollments = students.filter(student => {
+      const enrollmentDate = new Date(student.enrollmentDate);
+      return enrollmentDate >= startDate &&
+        enrollmentDate <= endDate &&
+        (student.source === 'FormResponses1' || student.source === 'OldFormResponses1' || student.source === 'RazorpayEnrollments');
+    });
+
+    return this.getStudentsWithLTV(enrollments);
+  }
+
+  static getRenewalsForLastNDays(students: Student[], days: number): StudentWithLTV[] {
+    const endDate = new Date();
+    endDate.setHours(23, 59, 59, 999);
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - (days - 1));
+    startDate.setHours(0, 0, 0, 0);
+
+    const renewals = students.filter(student => {
+      // We check enrollmentDate because renewals are also stored in the students array with a 'Renewal' source
+      const renewalDate = new Date(student.enrollmentDate);
+      return renewalDate >= startDate &&
+        renewalDate <= endDate &&
+        (student.source === 'Renewal' || student.source === 'HistoricalRenewal' || student.source === 'RazorpayRenewals');
+    });
+
+    return this.getStudentsWithLTV(renewals);
   }
 
   static getTodayRenewals(students: Student[]): StudentWithLTV[] {

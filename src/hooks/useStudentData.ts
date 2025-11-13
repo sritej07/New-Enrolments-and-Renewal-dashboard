@@ -52,11 +52,29 @@ export const useStudentData = () => {
 
 // Mock data for development
 const getMockData = (): Student[] => {
-  const activities = ['Swimming', 'Piano', 'Art', 'Dance', 'Karate', 'Guitar', 'Tennis', 'Chess'];
+  const courseCategories = {
+    Keyboard: "KB",
+    Piano: "PN",
+    Guitar: "GT",
+    "Carnatic Vocal": "CV",
+    "Hindustani Vocal": "HV",
+    Bharatnatyam: "BN",
+    Kathak: "KT",
+    Tabla: "TB",
+    Violin: "VL",
+    Handwriting: "HW",
+    Art: "AR",
+    "Western Dance": "BW",
+    Kuchipudi: "KU",
+    Other: "Other",
+  };
+  const activities = Object.keys(courseCategories);
   const students: Student[] = [];
 
   for (let i = 1; i <= 150; i++) {
     const enrollmentDate = new Date(2022, Math.floor(Math.random() * 36), Math.floor(Math.random() * 28) + 1);
+    const activity = activities[Math.floor(Math.random() * activities.length)];
+    const courseCode = courseCategories[activity as keyof typeof courseCategories] || 'Other';
     const endDate = new Date(enrollmentDate.getTime() + (Math.random() * 365 * 24 * 60 * 60 * 1000));
     const hasRenewal = Math.random() > 0.3;
     const isStrikeOff = Math.random() > 0.85;
@@ -66,17 +84,16 @@ const getMockData = (): Student[] => {
       name: `Student ${i}`,
       email: `student${i}@example.com`,
       phone: `+1-555-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`,
-      activities: Array.from(
-        { length: Math.floor(Math.random() * 3) + 1 },
-        () => activities[Math.floor(Math.random() * activities.length)]
-      ).filter((v, i, a) => a.indexOf(v) === i),
+      activities: [activity],
+      activity: `INMOCK${courseCode}01-${courseCode}-MOCK-${i}`,
+      courseCategory: activity,
       enrollmentDate,
       endDate,
       renewalDates: hasRenewal ? [new Date(enrollmentDate.getTime() + Math.random() * 365 * 24 * 60 * 60 * 1000)] : [],
       isActive: !isStrikeOff,
       isStrikeOff,
       fees: Math.floor(Math.random() * 500) + 100,
-      notes: Math.random() > 0.7 ? 'Special notes' : undefined
+      notes: Math.random() > 0.7 ? 'Special notes' : undefined,
     });
   }
 

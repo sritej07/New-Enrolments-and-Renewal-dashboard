@@ -2,6 +2,7 @@ import axios from "axios";
 import { parse } from "date-fns";
 import { Student } from "../types/Student";
 import {RenewalRecord} from "../types/Student";
+import { KeyRound } from "lucide-react";
 
 const GOOGLE_SHEETS_API_KEY = import.meta.env.VITE_GOOGLE_SHEETS_API_KEY;
 const SHEET_ID = import.meta.env.VITE_GOOGLE_SHEET_ID;
@@ -14,6 +15,26 @@ export class GoogleSheetsService {
   constructor() {
     this.apiKey = GOOGLE_SHEETS_API_KEY || "";
     this.sheetId = SHEET_ID || "";
+  }
+
+  private getCourseCategory(studentId: string): string {
+    const courseCategoryMap: { [key: string]: string } = {
+      kb: "Keyboard",
+      pn: "Piano",
+      gt: "Guitar",
+      cv: "Carnatic Vocal",
+      hv: "Hindustani Vocal",
+      bn: "Bharatnatyam",
+      kt: "Kathak",
+      tb: "Tabla",
+      vl: "Violin", // Covers Carnatic Violin and Violin
+      hw: "Handwriting", // Covers Handwriting and Cursive Writing
+      ar: "Art",
+      bw: "Western Dance",
+      ku: "Kuchipudi",
+    };
+    const parts = studentId?.split("-");
+    return (parts && parts.length > 1 && courseCategoryMap[parts[1]]) || "Other";
   }
 
   private log(message: string) {
@@ -144,6 +165,7 @@ export class GoogleSheetsService {
 
       const isStrikeOff = this.isRowStrikeOff(row);
       const activities = this.parseActivities(row[6] || "");
+      const courseCategory = this.getCourseCategory(studentId);
 
       if (studentMap.has(studentId)) {
         duplicateCount++;
@@ -170,6 +192,7 @@ export class GoogleSheetsService {
         notes: row[19] || undefined,
         package: row[5] || undefined,
         source,
+        courseCategory,
       });
     }
 
@@ -186,6 +209,7 @@ export class GoogleSheetsService {
       const renewalDate = this.parseDate(row[7]);
       const endDate = this.parseDate(row[16]);
       const renewalFees = row[9] ? parseFloat(row[9].replace(/[$,₹]/g, "")) : 0;
+      const courseCategory = this.getCourseCategory(studentId);
 
       // ✅ Always record renewal (even if duplicate)
     
@@ -200,6 +224,7 @@ export class GoogleSheetsService {
         email: row[1] || undefined,
         phone: row[4] || undefined,
         package: row[5] || undefined,
+        courseCategory,
       });
 
       if (!renewalDate) {
