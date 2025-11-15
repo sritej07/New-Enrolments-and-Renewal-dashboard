@@ -1,126 +1,98 @@
 ## Project Overview
 
-This is a unified Student Analytics Dashboard that provides comprehensive insights into student enrollments, renewals, churn analysis, and lifecycle tracking. The dashboard integrates data from Google Sheets to deliver real-time analytics with interactive visualizations and drill-down capabilities.
+This is a unified Student Analytics Dashboard that provides comprehensive insights into student enrollments, renewals, churn analysis, and lifecycle tracking. The dashboard integrates data from multiple Google Sheets to deliver real-time analytics with interactive visualizations, dynamic filtering, and drill-down capabilities.
 
 ## Dashboard Flow
 
 ### 🎯 **Unified Analytics Dashboard**
 
-The dashboard combines enrollment and renewal analytics into a single, comprehensive view with the following sections:
+The dashboard presents a holistic view of student data with the following sections:
 
-#### **1. Date Range Filter (Top)**
-- Calendar-based date picker for start and end dates
-- All metrics, charts, and tables respond dynamically to date range changes
-- Default range: Last 3 years from current date
+#### **1. Filters (Top)**
+- **Course Category Filter**: A multi-select dropdown to filter the entire dashboard by one or more course categories.
+- **Date Range Filter**: A calendar-based date picker for start and end dates. All metrics and charts below this filter respond dynamically to the selected range.
 
-#### **2. Primary Metrics Row**
-Six key performance indicators displayed as clickable cards:
+#### **2. "Today's Metrics" Row**
+A set of cards showing key metrics independent of the date range filter, providing a real-time snapshot of daily and recent activity. Includes metrics like "Today's Enrollments," "Last 7 Days Renewals," and "Currently Active Students."
 
-- **🟢 New Enrollments**: Students enrolled within the selected date range
-- **🟡 Eligible Students**: Students whose packages expired within the date range
-- **🔵 Renewed Students**: Students who renewed within grace period in the date range
-- **🔴 Churned Students**: Students who failed to renew within 45-day grace period
-- **🟠 In Grace Period**: Students currently within 45-day grace window
-- **🟣 Multi-Activity Students**: Students enrolled in multiple activities
+#### **3. Primary Metrics Row (Date-Range Dependent)**
+Key performance indicators for the selected date range, displayed as clickable cards with informational tooltips (ℹ️).
+
+- **🟢 New Enrollments**: Total new students enrolled within the date range.
+- **🟡 Eligible for Renewal**: Students whose subscription end date falls within the date range.
+- **🔵 Renewals**: Total renewals processed within the date range.
+- **🔴 Churned Students**: Students whose subscription ended in the date range and did not renew within the 45-day grace period.
+- **🟠 In Grace Period**: Students whose subscription has expired but are currently within the 45-day grace period.
+- **🟣 Multi-Course Students**: Students who enrolled in more than one course within the date range.
 
 #### **3. Percentage Metrics Row**
-Four calculated percentage metrics:
+Four key calculated metrics with informational tooltips (ℹ️).
 
-- **Renewal %**: (Renewed ÷ Eligible) × 100
-- **Churn %**: (Churned ÷ Eligible) × 100
+- **Renewal %**: `(Renewals ÷ Eligible for Renewal) × 100`
+- **Churn %**: `(Churned Students ÷ Active Students at Start) × 100`
 - **Retention %**: 100 - Churn %
-- **Net Growth %**: ((End - Start) ÷ Start) × 100
+- **Net Growth %**: `((End Students - Start Students) ÷ Start Students) × 100`
 
-#### **4. Lifetime Value (LTV)**
-- **Total LTV**: Sum of all fees paid by students in the selected date range
-- Includes fees from both enrollment and renewal activities
-
-#### **5. Trend Over Time Chart**
-Interactive line chart showing monthly trends for:
-- Renewal Rate %
-- Churn Rate %
-- Retention Rate %
-- Net Growth Rate %
-
-#### **6. Monthly Enrollment Trends**
+#### **5. Monthly Trends Chart**
 Line chart displaying:
 - New Enrollments per month
 - Renewals per month
-- Dropped Students per month (based on grace period expiration)
+- Churned Students per month
 
-#### **7. Activity Analysis**
-- **Multi-Activity Students Chart**: Doughnut chart showing distribution
-- **Enrollments and Renewals by Activity**: Bar chart for top 8 activities
+#### **6. Category & Activity Analysis**
+- **Students by Activity Count**: Doughnut chart showing the distribution of single vs. multi-course students.
+- **Enrollments and Renewals by Course Category**: Bar chart comparing enrollments and renewals for the top categories.
 
-#### **8. Activity Tables**
-- **Top Activities by Enrollment**: Ranked by total enrollments
-- **Activities with Highest Churn Rates**: Shows churn rates and active student counts
+#### **7. Data Tables**
+- **Top Course Categories by Enrollment**: Table ranking categories by total enrollments and renewals.
+- **Course Categories with Highest Churned students**: Table ranking categories by the number of churned students.
 
 ## Business Logic
 
-### **Package Types & Expiration**
-- **Lifetime Packages**: Contain "LTV" in package name, excluded from renewal calculations
-- **Limited Packages**: Duration extracted from package name (e.g., "12 weeks - 24 sessions" → 12 weeks)
-- **Expiration Date**: Fetched directly from 'End Date (Q1)' column in Google Sheets
+### **Student Data Merging**
+- **Unified Student Profile**: Student records with similar IDs (e.g., `ID-KB-123` and `ID-GT-123`) are merged into a single profile.
+- **Combined Data**: The merged profile aggregates all `activities` and `courseCategories`, uses the latest `endDate` and `enrollmentDate`, and de-duplicates all `renewalDates`.
+
+### **Active Student Calculation**
+A student is considered "active" at a given point in time if:
+- Their subscription `endDate` has not passed yet, OR
+- They are within the 45-day grace period and have not yet renewed, OR
+- Their package is a lifetime ("LTV") package.
 
 ### **Renewal Window & Grace Period**
 - **Grace Period**: 45 days after package expiration date
-- **Renewed**: Student has renewal date ≤ grace period end date
-- **Churned**: No renewal within 45-day grace period
-- **In Grace**: Currently within 45 days after expiration, no renewal yet
+- **Valid Renewal**: A renewal is considered valid only if its date is *after* the subscription's `endDate`.
+- **Churned**: A student is churned if their grace period has expired and they have no valid renewal.
 
 ### **Churn Calculation Logic**
-Based on monthly cohort analysis:
-- **Start of Month**: Students active at end of previous month
-- **Dropped**: Students who didn't renew within grace period in current month
-- **Joined**: New enrollments in current month
-- **End of Month**: Start + Joined - Dropped
-- **Churn %**: (Dropped ÷ Start) × 100
+The main Churn % metric is calculated for the selected date range:
+- **Start**: Number of active students at the `startDate` of the date range.
+- **Churned**: Number of students who churned within the date range.
+- **Joined**: New enrollments within the date range.
+- **End**: `Start + Joined - Churned`.
+- **Churn %**: `(Churned ÷ Start) × 100`.
 
 ## Data Sources
 
 ### **Google Sheets Integration**
-- **Enrollment Data**: `FormResponses1` sheet/tab
-- **Renewal Data**: `Renewal` sheet/tab
+- **Enrollment Data**: `FormResponses1`, `OldFormResponses1`, `RazorpayEnrollments` sheets.
+- **Renewal Data**: `Renewal`, `HistoricalRenewal`, `RazorpayRenewals` sheets.
 - **Real-time API**: Fetches data from both sheets and combines student records
-
-### **Key Data Mapping**
-- Column A: Timestamp
-- Column B: Email Address
-- Column C: Student Name
-- Column D: Country Code
-- Column E: WhatsApp Phone Number
-- Column F: Package (duration extracted)
-- Column G: Activity
-- Column H: Start Date
-- Column I: Fees Paid Amount
-- Column Q: End Date (Q1) - Used for expiration calculation
-- Column U: Student ID
-- Renewal sheet contains renewal dates and additional fees
 
 ## Interactive Features
 
 ### **Clickable Metrics**
-- All metric cards are clickable and open detailed student modals
-- Student modals show comprehensive information including:
+- All primary metric cards are clickable and open a modal with a detailed student list.
+- **Informational Tooltips**: Each metric card has an `ℹ️` icon that shows a description or formula on hover/click.
+- **Student Detail Modals**: Show comprehensive information including:
   - Contact details (email, phone)
-  - Package information and duration
-  - Enrollment and renewal dates
+  - Package information
+  - A complete history of enrollment and renewal dates
   - Current status with color-coded badges
   - Lifetime value contribution
-  - Student ID display
 
-### **Activity Drill-Down**
-- Click any activity in tables to see students enrolled in that activity
-- Activity-specific metrics and student lists
-- Churn rate analysis per activity
-
-### **Status Indicators**
-- **Green Badge**: Renewed students
-- **Red Badge**: Churned students
-- **Yellow Badge**: In grace period
-- **Blue Badge**: Active students
-- **Purple Badge**: Lifetime package holders
+### **Drill-Downs**
+- Clicking a course category in the tables opens a modal showing the list of students for that specific category.
 
 ## Technical Architecture
 
@@ -128,25 +100,26 @@ Based on monthly cohort analysis:
 - **Frontend**: React 18 with TypeScript
 - **Build Tool**: Vite
 - **Styling**: Tailwind CSS
-- **Charts**: Recharts for trend visualizations, Chart.js for other charts
+- **Charts**: Chart.js for all charts
 - **Data Processing**: Custom utility classes
-- **API Integration**: Axios for Google Sheets API
 - **Icons**: Lucide React
 - **Date Handling**: date-fns
 
 ### **Key Components**
 - `UnifiedDataProcessor`: Core business logic and calculations
+- `useStudentData`: Custom hook for fetching and processing data from Google Sheets.
 - `DateRangeFilter`: Date selection component
-- `UnifiedStudentModal`: Student detail popup
-- `UnifiedTrendChart`: Time-series trend visualization
+-`CourseCategoryFilter`: Multi-select component for filtering by category.
+- `UnifiedStudentModal` & `RenewalModal`: Popups for displaying student lists.
 - `ClickableMetricCard`: Interactive KPI cards
+- `InfoTooltip`: Reusable component for informational popups.
 
 ### **Data Flow**
-1. **Data Fetching**: Google Sheets API via dual sheet fetching
-2. **Data Processing**: `UnifiedDataProcessor` transforms raw data into metrics
-3. **State Management**: React hooks manage filtering and modal states
-4. **UI Updates**: All components respond to date range changes
-5. **Drill-Down**: Click handlers open detailed student information
+1. **Data Fetching**: `useStudentData` hook fetches data from multiple Google Sheets.
+2. **Data Merging**: `UnifiedDataProcessor.mergeStudentRecords` combines records for the same student into a single profile.
+3. **State Management**: React hooks (`useState`, `useMemo`) manage filters, modal states, and derived data.
+4. **Metric Calculation**: `UnifiedDataProcessor` calculates all metrics based on filtered data and the selected date range.
+5. **UI Rendering**: Components render the processed data, responding dynamically to filter changes.
 
 ## Development Commands
 
@@ -164,33 +137,5 @@ Based on monthly cohort analysis:
    VITE_GOOGLE_SHEETS_API_KEY=your_api_key_here
    VITE_GOOGLE_SHEET_ID=your_sheet_id_here
    ```
-
-3. Google Sheets API Setup:
-   - Enable Google Sheets API in Google Cloud Console
-   - Create API key credentials
-   - Ensure sheets are publicly readable or properly shared
-
-## Key Features
-
-### **Real-Time Analytics**
-- Live data synchronization with Google Sheets
-- Automatic metric calculations based on business rules
-- Dynamic filtering and date range selection
-
-### **Comprehensive Metrics**
-- Student lifecycle tracking from enrollment to churn
-- Financial metrics with lifetime value calculations
-- Activity-based performance analysis
-
-### **Interactive Visualizations**
-- Trend analysis with time-series charts
-- Comparative analysis across activities
-- Drill-down capabilities for detailed insights
-
-### **Business Intelligence**
-- Churn prediction and analysis
-- Renewal rate optimization insights
-- Multi-activity student identification
-- Grace period management
 
 The dashboard provides a complete 360° view of student analytics, enabling data-driven decisions for student retention, activity optimization, and business growth.
