@@ -40,7 +40,10 @@ export class UnifiedDataProcessor {
         }
 
         // Combine renewal dates.
-        existingStudent.renewalDates = [...new Set([...existingStudent.renewalDates, ...student.renewalDates])];
+        const combinedRenewalDates = [...existingStudent.renewalDates, ...student.renewalDates];
+        // Using getTime() for Set uniqueness because Date objects are compared by reference.
+        const uniqueTimeStamps = new Set(combinedRenewalDates.map(d => d.getTime()));
+        existingStudent.renewalDates = Array.from(uniqueTimeStamps).map(ts => new Date(ts));
 
         // Sum fees.
         existingStudent.fees = (existingStudent.fees || 0) + (student.fees || 0);
@@ -191,21 +194,23 @@ export class UnifiedDataProcessor {
       .length;
 
     // Calculate percentages
+    const startOfPeriodStudents = this.getActiveStudentsAtDate(students, renewalStudents, startDate);
+    const startOfPeriodCount = startOfPeriodStudents.length;
+
     const renewalPercentage = eligibleRenewals > 0
       ? (totalRenewals / eligibleRenewals) * 100
       : 0;
 
-    const churnPercentage = eligibleRenewals > 0
-      ? (churnedStudents.length / eligibleRenewals) * 100
+    const churnPercentage = startOfPeriodCount > 0
+      ? (churnedStudents.length / startOfPeriodCount) * 100
       : 0;
 
     const retentionPercentage = 100 - churnPercentage;
 
     // Calculate net growth: ((End - Start) / Start) * 100
-    const startOfPeriod = eligibleRenewals;
-    const endOfPeriod = startOfPeriod + newEnrollments - churnedStudents.length;
-    const netGrowthPercentage = startOfPeriod > 0
-      ? ((endOfPeriod - startOfPeriod) / startOfPeriod) * 100
+    const endOfPeriodCount = startOfPeriodCount + newEnrollments - churnedStudents.length;
+    const netGrowthPercentage = startOfPeriodCount > 0
+      ? ((endOfPeriodCount - startOfPeriodCount) / startOfPeriodCount) * 100
       : 0;
 
     // Calculate total LTV for students in date range
@@ -832,17 +837,43 @@ export class UnifiedDataProcessor {
     return todayRenewals;
   }
 
-  static getCurrentlyActiveStudents(students: Student[]): StudentWithLTV[] {
+  static getCurrentlyActiveStudents(students: Student[], renewalStudents: RenewalRecord[]): StudentWithLTV[] {
     const now = new Date();
 
     // Get unique students by ID to avoid duplicates
     const studentMap = new Map<string, Student>();
 
     students.forEach(student => {
-      // Only keep the latest record for each student
-      if (!studentMap.has(student.id) ||
-        (studentMap.get(student.id)!.enrollmentDate < student.enrollmentDate)) {
+      const existing = studentMap.get(student.id);
+      // Keep the record with the latest enrollment date
+      if (!existing || isAfter(student.enrollmentDate, existing.enrollmentDate)) {
         studentMap.set(student.id, student);
+      }
+    });
+
+    // Add or update students from renewal records
+    renewalStudents.forEach(renewal => {
+      const existingStudent = studentMap.get(renewal.id);
+      if (existingStudent) {
+        // If student exists, update with the latest endDate from renewals
+        if (renewal.endDate && (!existingStudent.endDate || isAfter(renewal.endDate, existingStudent.endDate))) {
+          existingStudent.endDate = renewal.endDate;
+        }
+        // If the new renewal date is earlier, update the enrollmentDate
+        if (renewal.renewalDate && isBefore(renewal.renewalDate, existingStudent.enrollmentDate)) {
+          existingStudent.enrollmentDate = renewal.renewalDate;
+        }
+        // Combine and de-duplicate renewal dates
+        if (renewal.renewalDate) {
+          const combinedRenewalDates = [...existingStudent.renewalDates, renewal.renewalDate];
+          // Using getTime() for Set uniqueness because Date objects are compared by reference.
+          const uniqueTimeStamps = new Set(combinedRenewalDates.map(d => d.getTime()));
+          existingStudent.renewalDates = Array.from(uniqueTimeStamps).map(ts => new Date(ts));
+        }
+      } else {
+        // If student from renewal is not in the main student list, add them.
+        // We create a partial Student object.
+        studentMap.set(renewal.id, { ...renewal, id: renewal.id, name: renewal.name, enrollmentDate: renewal.renewalDate || new Date(0), renewalDates: renewal.renewalDate ? [renewal.renewalDate] : [], activities: renewal.activities.split(','), isActive: false, isStrikeOff: false });
       }
     });
 
@@ -867,6 +898,75 @@ export class UnifiedDataProcessor {
 
 
       // Include students with "LTV" in their package name
+
+      return isActiveNotExpired || isInGracePeriod || hasLTV;
+    });
+
+    return this.getStudentsWithLTV(activeStudents);
+  }
+
+  static getCurrentlyActiveMultiActivityStudents(students: Student[], renewalStudents: RenewalRecord[]): StudentWithLTV[] {
+    const activeStudents = this.getCurrentlyActiveStudents(students, renewalStudents);
+    const multiActivityStudents = activeStudents.filter(student => student.activities.length > 1);
+    return multiActivityStudents;
+  }
+
+  static getActiveStudentsAtDate(students: Student[], renewalStudents: RenewalRecord[], date: Date): StudentWithLTV[] {
+    // Get unique students by ID to avoid duplicates
+    const studentMap = new Map<string, Student>();
+
+    students.forEach(student => {
+      const existing = studentMap.get(student.id);
+      // Keep the record with the latest enrollment date
+      if (!existing || isAfter(student.enrollmentDate, existing.enrollmentDate)) {
+        studentMap.set(student.id, student);
+      }
+    });
+
+    // Add or update students from renewal records
+    renewalStudents.forEach(renewal => {
+      const existingStudent = studentMap.get(renewal.id);
+      if (existingStudent) {
+        // If student exists, update with the latest endDate from renewals
+        if (renewal.endDate && (!existingStudent.endDate || isAfter(renewal.endDate, existingStudent.endDate))) {
+          existingStudent.endDate = renewal.endDate;
+        }
+        // If the new renewal date is earlier, update the enrollmentDate
+        if (renewal.renewalDate && isBefore(renewal.renewalDate, existingStudent.enrollmentDate)) {
+          existingStudent.enrollmentDate = renewal.renewalDate;
+        }
+        // Combine and de-duplicate renewal dates
+        if (renewal.renewalDate) {
+          const combinedRenewalDates = [...existingStudent.renewalDates, renewal.renewalDate];
+          // Using getTime() for Set uniqueness because Date objects are compared by reference.
+          const uniqueTimeStamps = new Set(combinedRenewalDates.map(d => d.getTime()));
+          existingStudent.renewalDates = Array.from(uniqueTimeStamps).map(ts => new Date(ts));
+        }
+      } else {
+        // If student from renewal is not in the main student list, add them.
+        // We create a partial Student object.
+        studentMap.set(renewal.id, { ...renewal, id: renewal.id, name: renewal.name, enrollmentDate: renewal.renewalDate || new Date(0), renewalDates: renewal.renewalDate ? [renewal.renewalDate] : [], activities: renewal.activities.split(','), isActive: false, isStrikeOff: false });
+      }
+    });
+
+    const uniqueStudents = Array.from(studentMap.values());
+
+    const activeStudents = uniqueStudents.filter(student => {
+      let isActiveNotExpired;
+      let isInGracePeriod;
+      if (student.endDate) {
+        const graceEndDate = addDays(student.endDate, 45);
+        const hasRenewal = student.renewalDates && student.renewalDates.length > 0 &&
+          student.renewalDates.some(renewalDate =>
+            isBefore(renewalDate, graceEndDate) || renewalDate.getTime() === graceEndDate.getTime()
+          );
+
+        // Active if: endDate > date (not expired yet)
+        // OR: in grace period at 'date' (endDate < date < graceEndDate) AND no renewal
+        isActiveNotExpired = isAfter(student.endDate, date);
+        isInGracePeriod = isAfter(date, student.endDate) && isBefore(date, graceEndDate) && !hasRenewal;
+      }
+      const hasLTV = student.package && student.package.includes('LTV');
 
       return isActiveNotExpired || isInGracePeriod || hasLTV;
     });

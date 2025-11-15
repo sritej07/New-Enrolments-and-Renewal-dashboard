@@ -12,8 +12,8 @@ import {
 } from 'lucide-react';
 import { useStudentData } from './hooks/useStudentData';
 import { UnifiedDataProcessor } from './utils/unifiedDataProcessor';
-import { MetricCard } from './components/MetricCard';
-import { ClickableMetricCard } from './components/ClickableMetricCard';
+import { MetricCard } from './MetricCard';
+import { ClickableMetricCard } from './ClickableMetricCard';
 import { LineChart } from './components/charts/LineChart';
 import { BarChart } from './components/charts/BarChart';
 import { DoughnutChart } from './components/charts/DoughnutChart';
@@ -99,7 +99,8 @@ function App() {
       todayRenewals: UnifiedDataProcessor.getTodayRenewals(filteredRenewalRecords),
       renewalsLast7Days: UnifiedDataProcessor.getRenewalsForLastNDays(filteredRenewalRecords, 7),
       renewalsLast15Days: UnifiedDataProcessor.getRenewalsForLastNDays(filteredRenewalRecords, 15),
-      currentlyActive: UnifiedDataProcessor.getCurrentlyActiveStudents(filteredStudents)
+      currentlyActive: UnifiedDataProcessor.getCurrentlyActiveStudents(filteredStudents, filteredRenewalRecords),
+      currentlyActiveMultiActivity: UnifiedDataProcessor.getCurrentlyActiveMultiActivityStudents(filteredStudents, filteredRenewalRecords)
     };
   }, [filteredData]);
 
@@ -274,11 +275,12 @@ function App() {
         </div>
         {/* Today's Metrics (Independent of Date Filter) */}
         {todayMetrics && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <ClickableMetricCard
               title="Today's Enrolments"
               value={todayMetrics.todayEnrollments.length.toLocaleString()}
               icon={UserPlus}
+              description="Total new student enrollments recorded today."
               iconColor="text-green-600"
               onClick={() => openModal("Today's Enrolments", todayMetrics.todayEnrollments)}
             />
@@ -286,6 +288,7 @@ function App() {
               title="Last 7 Days Enrolments"
               value={todayMetrics.enrollmentsLast7Days.length.toLocaleString()}
               icon={UserPlus}
+              description="Total new student enrollments recorded in the last 7 days."
               iconColor="text-green-600"
               onClick={() => openModal("Last 7 Days Enrolments", todayMetrics.enrollmentsLast7Days)}
             />
@@ -293,6 +296,7 @@ function App() {
               title="Last 15 Days Enrolments"
               value={todayMetrics.enrollmentsLast15Days.length.toLocaleString()}
               icon={UserPlus}
+              description="Total new student enrollments recorded in the last 15 days."
               iconColor="text-green-600"
               onClick={() => openModal("Last 15 Days Enrolments", todayMetrics.enrollmentsLast15Days)}
             />
@@ -300,6 +304,7 @@ function App() {
               title="Today's Renewals"
               value={todayMetrics.todayRenewals.length.toLocaleString()}
               icon={RefreshCw}
+              description="Total student renewals recorded today."
               iconColor="text-blue-600"
               onClick={() => openRenewalModal("Today's Renewals", todayMetrics.todayRenewals)}
             />
@@ -307,6 +312,7 @@ function App() {
               title="Last 7 Days Renewals"
               value={todayMetrics.renewalsLast7Days.length.toLocaleString()}
               icon={RefreshCw}
+              description="Total student renewals recorded in the last 7 days."
               iconColor="text-blue-600"
               onClick={() => openRenewalModal("Last 7 Days Renewals", todayMetrics.renewalsLast7Days)}
             />
@@ -314,6 +320,7 @@ function App() {
               title="Last 15 Days Renewals"
               value={todayMetrics.renewalsLast15Days.length.toLocaleString()}
               icon={RefreshCw}
+              description="Total student renewals recorded in the last 15 days."
               iconColor="text-blue-600"
               onClick={() => openRenewalModal("Last 15 Days Renewals", todayMetrics.renewalsLast15Days)}
             />
@@ -321,8 +328,17 @@ function App() {
               title="Currently Active Students"
               value={todayMetrics.currentlyActive.length.toLocaleString()}
               icon={Users}
+              description="Total number of students with an active subscription or within their grace period as of today."
               iconColor="text-purple-600"
               onClick={() => openModal('Currently Active Students', todayMetrics.currentlyActive)}
+            />
+            <ClickableMetricCard
+              title="Currently Active Multi-Course Students"
+              value={todayMetrics.currentlyActiveMultiActivity.length.toLocaleString()}
+              icon={Activity}
+              description="Total number of currently active students enrolled in more than one course."
+              iconColor="text-indigo-600"
+              onClick={() => openModal('Currently Active Multi-Activity Students', todayMetrics.currentlyActiveMultiActivity)}
             />
           </div>
         )}
@@ -342,6 +358,7 @@ function App() {
             title="New Enrollments"
             value={metrics.newEnrollments.toLocaleString()}
             icon={UserPlus}
+            description="Total new student enrollments within the selected date range."
             iconColor="text-green-600"
             onClick={() => openModal('New Enrollments', UnifiedDataProcessor.getNewEnrollments(filteredData.filteredStudents, dateRange))}
           />
@@ -349,6 +366,7 @@ function App() {
             title="Eligible for Renewal"
             value={metrics.eligibleStudents.toLocaleString()}
             icon={Users}
+            description="Students whose subscription end date falls within the selected date range, making them eligible for renewal."
             iconColor="text-yellow-600"
             onClick={() => openRenewalModal('Eligible for Renewal', UnifiedDataProcessor.getEligibleStudents(filteredData.filteredStudents, filteredData.filteredRenewalRecords, dateRange))}
           />
@@ -356,6 +374,7 @@ function App() {
             title="Renewals"
             value={metrics.renewedStudents.toLocaleString()}
             icon={RefreshCw}
+            description="Total student renewals processed within the selected date range."
             iconColor="text-blue-600"
             onClick={() => openRenewalModal('Renewed Students', UnifiedDataProcessor.getRenewedStudents(filteredData.filteredRenewalRecords, dateRange))}
           />
@@ -363,6 +382,7 @@ function App() {
             title="Churned Students"
             value={metrics.churnedStudents.toLocaleString()}
             icon={TrendingDown}
+            description="Students whose subscription ended in the date range and did not renew within the 45-day grace period."
             iconColor="text-red-600"
             onClick={() => openModal('Churned Students', UnifiedDataProcessor.getChurnedStudents(filteredData.filteredStudents, dateRange))}
           />
@@ -370,13 +390,15 @@ function App() {
             title="In Grace Period"
             value={metrics.inGraceStudents.toLocaleString()}
             icon={Clock}
+            description="Students whose subscription has expired but are still within the 45-day grace period for renewal."
             iconColor="text-orange-600"
             onClick={() => openModal('In Grace Period', UnifiedDataProcessor.getInGraceStudents(filteredData.filteredStudents, dateRange))}
           />
           <ClickableMetricCard
-            title="Multi-Activity Students"
+            title="Multi-Course Students"
             value={multipleStudents.length.toLocaleString()}
             icon={Activity}
+            description="Students who enrolled in more than one course within the selected date range."
             iconColor="text-purple-600"
             onClick={() => openModal('Multi-Activity Students', multipleStudents)}
           />
@@ -387,24 +409,28 @@ function App() {
           <MetricCard
             title="Renewal %"
             value={`${metrics.renewalPercentage}%`}
+            description="(Renewals ÷ Eligible for Renewal) × 100"
             icon={TrendingUp}
             iconColor="text-green-600"
           />
           <MetricCard
             title="Churn %"
             value={`${metrics.churnPercentage}%`}
+            description="(Churned Students ÷ Active Students at Start) × 100"
             icon={TrendingDown}
             iconColor="text-red-600"
           />
           <MetricCard
             title="Retention %"
             value={`${metrics.retentionPercentage}%`}
+            description="100% - Churn %"
             icon={RefreshCw}
             iconColor="text-blue-600"
           />
           <MetricCard
             title="Net Growth %"
             value={`${metrics.netGrowthPercentage}%`}
+            description="((End Students - Start Students) ÷ Start Students) × 100"
             icon={TrendingUp}
             iconColor="text-purple-600"
           />
