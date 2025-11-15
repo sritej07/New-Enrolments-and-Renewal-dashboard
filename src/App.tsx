@@ -85,16 +85,16 @@ function App() {
 
   // Calculate today's metrics (independent of date filter)
   const todayMetrics = useMemo(() => {
-    const { filteredStudents } = filteredData;
+    const { filteredStudents,filteredRenewalRecords } = filteredData;
     if (!filteredStudents.length) return null;
 
     return {
       todayEnrollments: UnifiedDataProcessor.getTodayEnrollments(filteredStudents),
       enrollmentsLast7Days: UnifiedDataProcessor.getEnrollmentsForLastNDays(filteredStudents, 7),
       enrollmentsLast15Days: UnifiedDataProcessor.getEnrollmentsForLastNDays(filteredStudents, 15),
-      todayRenewals: UnifiedDataProcessor.getTodayRenewals(filteredStudents),
-      renewalsLast7Days: UnifiedDataProcessor.getRenewalsForLastNDays(filteredStudents, 7),
-      renewalsLast15Days: UnifiedDataProcessor.getRenewalsForLastNDays(filteredStudents, 15),
+      todayRenewals: UnifiedDataProcessor.getTodayRenewals(filteredRenewalRecords),
+      renewalsLast7Days: UnifiedDataProcessor.getRenewalsForLastNDays(filteredRenewalRecords, 7),
+      renewalsLast15Days: UnifiedDataProcessor.getRenewalsForLastNDays(filteredRenewalRecords, 15),
       currentlyActive: UnifiedDataProcessor.getCurrentlyActiveStudents(filteredStudents)
     };
   }, [filteredData]);
@@ -104,9 +104,9 @@ function App() {
     if (!filteredStudents.length) return null;
 
     const metrics = UnifiedDataProcessor.calculateUnifiedMetrics(filteredStudents, filteredRenewalRecords, dateRange);
-    const monthlyData = UnifiedDataProcessor.calculateMonthlyTrends(filteredStudents, dateRange);
-    const trendData = UnifiedDataProcessor.calculateTrendData(filteredStudents, dateRange);
-    const topCourseCategories = UnifiedDataProcessor.getCourseCategoryEnrollments(filteredStudents, dateRange).slice(0, 14);
+    const monthlyData = UnifiedDataProcessor.calculateMonthlyTrends(filteredStudents, filteredRenewalRecords, dateRange);
+    const trendData = UnifiedDataProcessor.calculateTrendData(filteredStudents, filteredRenewalRecords,dateRange);
+    const topCourseCategories = UnifiedDataProcessor.getCourseCategoryEnrollments(filteredStudents, filteredRenewalRecords, dateRange).slice(0, 13);
     const highChurnCourseCategories = UnifiedDataProcessor.getCourseCategoryChurnRates(filteredStudents, dateRange).slice(0, 5);
 
     // Chart data
@@ -128,7 +128,7 @@ function App() {
           fill: true,
         },
         {
-          label: 'Dropped',
+          label: 'Churned Students',
           data: monthlyData.map(d => d.dropped),
           borderColor: '#dc2626',
           backgroundColor: 'rgba(220, 38, 38, 0.1)',
@@ -293,14 +293,21 @@ function App() {
               value={todayMetrics.todayRenewals.length.toLocaleString()}
               icon={RefreshCw}
               iconColor="text-blue-600"
-              onClick={() => openModal("Today's Renewals", todayMetrics.todayRenewals)}
+              onClick={() => openRenewalModal("Today's Renewals", todayMetrics.todayRenewals)}
             />
             <ClickableMetricCard
               title="Last 7 Days Renewals"
               value={todayMetrics.renewalsLast7Days.length.toLocaleString()}
               icon={RefreshCw}
               iconColor="text-blue-600"
-              onClick={() => openModal("Last 7 Days Renewals", todayMetrics.renewalsLast7Days)}
+              onClick={() => openRenewalModal("Last 7 Days Renewals", todayMetrics.renewalsLast7Days)}
+            />
+            <ClickableMetricCard
+              title="Last 15 Days Renewals"
+              value={todayMetrics.renewalsLast15Days.length.toLocaleString()}
+              icon={RefreshCw}
+              iconColor="text-blue-600"
+              onClick={() => openRenewalModal("Last 15 Days Renewals", todayMetrics.renewalsLast15Days)}
             />
             <ClickableMetricCard
               title="Currently Active Students"
@@ -375,7 +382,7 @@ function App() {
             icon={TrendingUp}
             iconColor="text-green-600"
           />
-          <MetricCard
+          {/* <MetricCard
             title="Churn %"
             value={`${metrics.churnPercentage}%`}
             icon={TrendingDown}
@@ -392,7 +399,7 @@ function App() {
             value={`${metrics.netGrowthPercentage}%`}
             icon={TrendingUp}
             iconColor="text-purple-600"
-          />
+          /> */}
         </div>
 
         {/* LTV Metric */}
@@ -406,14 +413,14 @@ function App() {
         </div> */}
 
         {/* Trend Over Time */}
-        {/* <div className="mb-8">
+        <div className="mb-8">
           <UnifiedTrendChart data={trendData} />
-        </div> */}
+        </div>
 
         {/* Enrollment Trends */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <LineChart
-            title="Trend Over Time"
+            title="Monthly Trends"
             data={enrollmentChartData}
           />
           <DoughnutChart
@@ -439,10 +446,9 @@ function App() {
             onActivityClick={(category) => openModal(`Enrolled Students in ${category}`, UnifiedDataProcessor.getEnrolledStudentsByCourseCategory(filteredData.filteredStudents, category, dateRange))}
           />
           <ActivityTable
-            title="Course Categories with Highest Churn Rates"
+            title="Course Categories with Highest Churned students"
             activities={highChurnCourseCategories.map(c => ({ ...c, activity: c.courseCategory }))}
-            showDropRate={true}
-            showActiveStudents={true}
+            showChurnedStudents={true}
             onActivityClick={(category) => openModal(`Churned Students in ${category}`, UnifiedDataProcessor.getChurnedStudentsByCourseCategory(filteredData.filteredStudents, category, dateRange))}
           />
         </div>

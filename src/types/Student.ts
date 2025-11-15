@@ -41,9 +41,9 @@ export interface EnrollmentData {
 
 export interface ActivityData {
   activity: string;
-  enrollments: number;
-  renewals: number;
-  dropRate: number;
+  enrollments?: number;
+  renewals?: number;
+  churnedStudents?: number;
 }
 
 export interface DashboardMetrics {

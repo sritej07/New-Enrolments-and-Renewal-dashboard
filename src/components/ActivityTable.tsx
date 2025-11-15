@@ -5,16 +5,14 @@ import { TrendingUp, TrendingDown } from 'lucide-react';
 interface ActivityTableProps {
   title: string;
   activities: ActivityData[];
-  showDropRate?: boolean;
-  showActiveStudents?: boolean;
+  showChurnedStudents?: boolean;
   onActivityClick?: (activity: string) => void;
 }
 
 export const ActivityTable: React.FC<ActivityTableProps> = ({
   title,
   activities,
-  showDropRate = false,
-  showActiveStudents = false,
+  showChurnedStudents = false,
   onActivityClick
 }) => {
   return (
@@ -29,21 +27,19 @@ export const ActivityTable: React.FC<ActivityTableProps> = ({
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Activity
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Enrollments
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Renewals
-              </th>
-              {showActiveStudents && (
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Active Students
-                </th>
+              {!showChurnedStudents && (
+                <>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Enrollments
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Renewals
+                  </th>
+                </>
               )}
-              {showDropRate && (
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Churn Rate
-                </th>
+              
+              {showChurnedStudents && (
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Churned Students</th>
               )}
             </tr>
           </thead>
@@ -68,42 +64,22 @@ export const ActivityTable: React.FC<ActivityTableProps> = ({
                     </div>
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {activity.enrollments}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <span className="text-sm text-gray-900 mr-2">
-                      {activity.renewals}
-                    </span>
-                    {/* <div className="text-xs text-gray-500">
-                      ({activity.enrollments > 0 ? Math.round((activity.renewals / activity.enrollments) * 100) : 0}%)
-                    </div> */}
-                  </div>
-                </td>
-                {showActiveStudents && (
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {(activity as any).activeStudents || 0}
-                  </td>
+                {!showChurnedStudents && (
+                  <>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {activity.enrollments}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <span className="text-sm text-gray-900 mr-2">
+                          {activity.renewals}
+                        </span>
+                      </div>
+                    </td>
+                  </>
                 )}
-                {showDropRate && (
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <span className={`text-sm font-medium mr-2 ${
-                        activity.dropRate > 30 ? 'text-red-600' : 
-                        activity.dropRate > 15 ? 'text-orange-600' : 
-                        'text-green-600'
-                      }`}>
-                        {activity.dropRate}%
-                      </span>
-                      {activity.dropRate > 20 ? (
-                        <TrendingUp className="text-red-500" size={16} />
-                      ) : (
-                        <TrendingDown className="text-green-500" size={16} />
-                      )}
-                    </div>
-                  </td>
-                )}
+                {showChurnedStudents && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{activity.churnedStudents}</td>}
+                
               </tr>
             ))}
           </tbody>
