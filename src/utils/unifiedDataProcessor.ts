@@ -1,9 +1,69 @@
 import { format, startOfMonth, endOfMonth, isWithinInterval, subMonths, addDays, isBefore, isAfter, differenceInCalendarMonths, addMonths } from 'date-fns';
-import { RenewalRecord, Student } from '../types/Student';
-import { StudentWithLTV, UnifiedMetrics, MonthlyMetrics, TrendData, DateRange } from '../types/UnifiedTypes';
+import { RenewalRecord, Student ,StudentWithLTV,} from '../types/Student';
+import {  UnifiedMetrics, MonthlyMetrics, TrendData, DateRange } from '../types/UnifiedTypes';
 import { ActivityData } from '../types/Student';
 
 export class UnifiedDataProcessor {
+  /**
+   * Merges student records that represent the same person but have different IDs.
+   * e.g., 'INHYDKP01-KB-910-ADYARAMMPR' and 'INHYDKP01-BN-910-ADYARAMMPR'
+   * are merged into a single record with a composite ID.
+   */
+  static mergeStudentRecords(students: Student[]): Student[] {
+    const studentMap = new Map<string, Student>();
+
+    const getBaseId = (id: string): string => {
+      const parts = id.split('-');
+      if (parts.length > 2) {
+        // Assumes the variant part is the second one, e.g., 'KB' in 'INHYDKP01-KB-910-...'
+        return `${parts[0]}-${parts.slice(2).join('-')}`;
+      }
+      return id;
+    };
+
+    students.forEach(student => {
+      const baseId = getBaseId(student.id);
+      const existingStudent = studentMap.get(baseId);
+
+      if (existingStudent) {
+        // Merge properties from the new record into the existing one.
+
+        // Combine activities, ensuring no duplicates.
+        existingStudent.activities = [...new Set([...existingStudent.activities, ...student.activities])];
+        
+        // Combine course categories, ensuring no duplicates.
+        existingStudent.courseCategories = [...new Set([...existingStudent.courseCategories, ...student.courseCategories])];
+
+        // Use the latest endDate.
+        if (student.endDate && (!existingStudent.endDate || isAfter(student.endDate, existingStudent.endDate))) {
+          existingStudent.endDate = student.endDate;
+        }
+
+        // Combine renewal dates.
+        existingStudent.renewalDates = [...new Set([...existingStudent.renewalDates, ...student.renewalDates])];
+
+        // Sum fees.
+        existingStudent.fees = (existingStudent.fees || 0) + (student.fees || 0);
+
+        
+        // Use the latest enrollment date as the primary one.
+        if (isAfter(student.enrollmentDate, existingStudent.enrollmentDate)) {
+          existingStudent.enrollmentDate = student.enrollmentDate;
+        }
+
+        // Update other fields if necessary, e.g., take the latest info.
+        existingStudent.name = student.name || existingStudent.name;
+        existingStudent.email = student.email || existingStudent.email;
+        existingStudent.phone = student.phone || existingStudent.phone;
+
+      } else {
+        studentMap.set(baseId, { ...student });
+      }
+    });
+
+    return Array.from(studentMap.values());
+  }
+
   static filterStudentsByDateRange(students: Student[], dateRange: DateRange): Student[] {
     // Ensure start date is inclusive by using start of day
     const startDate = new Date(dateRange.startDate);
@@ -302,29 +362,31 @@ export class UnifiedDataProcessor {
   
     // Process enrollments
     students.forEach(student => {
-      if (!(student.enrollmentDate >= startDate && student.enrollmentDate <= endDate)) return;
-  
-      const category = student.courseCategory;
-      if (!category) return;
-  
-      if (!categoryMap.has(category)) {
-        categoryMap.set(category, { enrollments: 0, renewals: 0 });
+      if (student.enrollmentDate >= startDate && student.enrollmentDate <= endDate) {
+        student.courseCategories.forEach(category => {
+          if (!category) return;
+    
+          if (!categoryMap.has(category)) {
+            categoryMap.set(category, { enrollments: 0, renewals: 0 });
+          }
+          const data = categoryMap.get(category)!;
+          data.enrollments++;
+        });
       }
-      const data = categoryMap.get(category)!;
-      data.enrollments++;
     });
   
     // Process renewals
     renewalStudents.forEach(student => {
       if (student.renewalDate && student.renewalDate >= startDate && student.renewalDate <= endDate && (student.source === 'Renewal' || student.source === 'HistoricalRenewal' || student.source === 'RazorpayRenewals')) {
-        const category = student.courseCategory;
-        if (!category) return;
-  
-        if (!categoryMap.has(category)) {
-          categoryMap.set(category, { enrollments: 0, renewals: 0 });
-        }
-        const data = categoryMap.get(category)!;
-        data.renewals++;
+        student.courseCategories.forEach(category => {
+          if (!category) return;
+    
+          if (!categoryMap.has(category)) {
+            categoryMap.set(category, { enrollments: 0, renewals: 0 });
+          }
+          const data = categoryMap.get(category)!;
+          data.renewals++;
+        });
       }
     });
   
@@ -349,25 +411,25 @@ export class UnifiedDataProcessor {
     const now = new Date();
   
     students.forEach(student => {
-      const category = student.courseCategory;
-      if (!category) return;
-  
-      if (!categoryMap.has(category)) {
-        categoryMap.set(category, { churned: 0 });
-      }
-      const data = categoryMap.get(category)!;
-  
       if (!student.endDate) return;
-  
+
       const graceEndDate = addDays(student.endDate, 45);
       const latestRenewal = student.renewalDates?.length
         ? new Date(Math.max(...student.renewalDates.map(d => d.getTime())))
         : null;
-  
+
       const hasValidRenewal = latestRenewal && isAfter(latestRenewal, student.endDate);
-  
+
       if (isAfter(now, graceEndDate) && !hasValidRenewal && student.endDate >= startDate && student.endDate <= endDate) {
+        student.courseCategories.forEach(category => {
+          if (!category) return;
+
+          if (!categoryMap.has(category)) {
+            categoryMap.set(category, { churned: 0 });
+          }
+          const data = categoryMap.get(category)!;
           data.churned++;
+        });
       }
     });
   
@@ -473,7 +535,7 @@ export class UnifiedDataProcessor {
       email: student.email,
       phone: student.phone,
       activities: student.activities.join(', '),
-      courseCategory: student.courseCategory,
+      courseCategories: student.courseCategories,
       renewalDate: student.enrollmentDate, // Using enrolledEndDate as the key date
       endDate: student.enrolledEndDate,
       package: student.package,
@@ -625,7 +687,7 @@ export class UnifiedDataProcessor {
     endDate.setHours(23, 59, 59, 999);
 
     const filtered = students.filter(student =>
-      student.courseCategory === categoryName &&
+      student.courseCategories.includes(categoryName) &&
       student.enrollmentDate >= startDate &&
       student.enrollmentDate <= endDate
     );
@@ -640,7 +702,7 @@ export class UnifiedDataProcessor {
 
     const now = new Date();
     const filtered = students.filter(student => {
-      if (student.courseCategory !== categoryName || !student.endDate) return false;
+      if (!student.courseCategories.includes(categoryName) || !student.endDate) return false;
 
       // Filter by endDate within the date range
       if (!(student.endDate >= startDate && student.endDate <= endDate)) return false;

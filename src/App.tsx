@@ -23,20 +23,19 @@ import { ActivityTable } from './components/ActivityTable';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { ErrorAlert } from './components/ErrorAlert';
 import { UnifiedStudentModal } from './components/UnifiedStudentModal';
-import { DateRange, StudentWithLTV } from './types/UnifiedTypes';
+import { DateRange } from './types/UnifiedTypes';
 import { subYears } from 'date-fns';
 import { RenewalModal } from './components/RenewalModal';
 import { CourseCategoryFilter } from './components/CourseCategoryFilter';
-import { RenewalRecord } from './types/Student';
+import { RenewalRecord ,StudentWithLTV,} from './types/Student';
 
 function App() {
-  const { students, renewalRecords, loading, error, refetch } = useStudentData();
+  const { students, renewalRecords, multipleActivitiesStudents, loading, error, refetch } = useStudentData();
   const [dateRange, setDateRange] = useState<DateRange>({
     startDate: subYears(new Date(), 3),
     endDate: new Date()
   });
   const [selectedCourseCategories, setSelectedCourseCategories] = useState<string[]>([]);
-
   const [modalState, setModalState] = useState<{
     isOpen: boolean;
     title: string;
@@ -61,11 +60,12 @@ function App() {
     if (!students.length && !renewalRecords.length) return [];
     const categories = new Set<string>();
     students.forEach(s => {
-      if (s.courseCategory) categories.add(s.courseCategory);
+      s.courseCategories.forEach(c => categories.add(c));
     });
     renewalRecords.forEach(r => {
-      if (r.courseCategory) categories.add(r.courseCategory);
+      r.courseCategories.forEach(c => categories.add(c));
     });
+
     return Array.from(categories).sort();
   }, [students, renewalRecords]);
 
@@ -73,19 +73,23 @@ function App() {
     const hasCategoryFilter = selectedCourseCategories.length > 0;
 
     const filteredStudents = hasCategoryFilter
-      ? students.filter(s => s.courseCategory && selectedCourseCategories.includes(s.courseCategory))
+      ? students.filter(s => s.courseCategories.some(c => selectedCourseCategories.includes(c)))
       : students;
 
     const filteredRenewalRecords = hasCategoryFilter
-      ? renewalRecords.filter(r => r.courseCategory && selectedCourseCategories.includes(r.courseCategory))
+      ? renewalRecords.filter(r => r.courseCategories.some(c => selectedCourseCategories.includes(c)))
       : renewalRecords;
 
-    return { filteredStudents, filteredRenewalRecords };
-  }, [students, renewalRecords, selectedCourseCategories]);
+    const filteredMultipleActivitiesStudents = hasCategoryFilter
+      ? multipleActivitiesStudents.filter(s => s.courseCategories.some(c => selectedCourseCategories.includes(c)))
+      : multipleActivitiesStudents;
+
+    return { filteredStudents, filteredRenewalRecords, filteredMultipleActivitiesStudents };
+  }, [students, renewalRecords, multipleActivitiesStudents, selectedCourseCategories]);
 
   // Calculate today's metrics (independent of date filter)
   const todayMetrics = useMemo(() => {
-    const { filteredStudents,filteredRenewalRecords } = filteredData;
+    const { filteredStudents, filteredRenewalRecords } = filteredData;
     if (!filteredStudents.length) return null;
 
     return {
@@ -100,14 +104,15 @@ function App() {
   }, [filteredData]);
 
   const dashboardData = useMemo(() => {
-    const { filteredStudents, filteredRenewalRecords } = filteredData;
+    const { filteredStudents, filteredRenewalRecords, filteredMultipleActivitiesStudents } = filteredData;
     if (!filteredStudents.length) return null;
 
     const metrics = UnifiedDataProcessor.calculateUnifiedMetrics(filteredStudents, filteredRenewalRecords, dateRange);
     const monthlyData = UnifiedDataProcessor.calculateMonthlyTrends(filteredStudents, filteredRenewalRecords, dateRange);
     const trendData = UnifiedDataProcessor.calculateTrendData(filteredStudents, filteredRenewalRecords,dateRange);
     const topCourseCategories = UnifiedDataProcessor.getCourseCategoryEnrollments(filteredStudents, filteredRenewalRecords, dateRange).slice(0, 13);
-    const highChurnCourseCategories = UnifiedDataProcessor.getCourseCategoryChurnRates(filteredStudents, dateRange).slice(0, 5);
+    const multipleStudents = UnifiedDataProcessor.getMultiActivityStudents(filteredMultipleActivitiesStudents, dateRange);
+    const highChurnCourseCategories = UnifiedDataProcessor.getCourseCategoryChurnRates(filteredStudents, dateRange).slice(0, 13);
 
     // Chart data
     const enrollmentChartData = {
@@ -159,8 +164,8 @@ function App() {
       datasets: [
         {
           data: [
-            metrics.newEnrollments - metrics.multiActivityStudents,
-            metrics.multiActivityStudents
+            metrics.newEnrollments - 2*multipleStudents.length,
+            multipleStudents.length
           ],
           backgroundColor: ['#94a3b8', '#3b82f6'],
           borderWidth: 0,
@@ -174,12 +179,14 @@ function App() {
       trendData,
       topCourseCategories,
       highChurnCourseCategories,
+      multipleStudents,
       enrollmentChartData,
       courseCategoryBarData,
       multiActivityData
     };
   }, [filteredData, dateRange]);
-
+  
+  
   const openModal = (title: string, studentList: StudentWithLTV[]) => {
     setModalState({
       isOpen: true,
@@ -237,7 +244,8 @@ function App() {
     courseCategoryBarData,
     multiActivityData,
     topCourseCategories,
-    highChurnCourseCategories
+    highChurnCourseCategories,
+    multipleStudents
   } = dashboardData;
 
   return (
@@ -367,10 +375,10 @@ function App() {
           />
           <ClickableMetricCard
             title="Multi-Activity Students"
-            value={metrics.multiActivityStudents.toLocaleString()}
+            value={multipleStudents.length.toLocaleString()}
             icon={Activity}
             iconColor="text-purple-600"
-            onClick={() => openModal('Multi-Activity Students', UnifiedDataProcessor.getMultiActivityStudents(filteredData.filteredStudents, dateRange))}
+            onClick={() => openModal('Multi-Activity Students', multipleStudents)}
           />
         </div>
 
@@ -382,7 +390,7 @@ function App() {
             icon={TrendingUp}
             iconColor="text-green-600"
           />
-          {/* <MetricCard
+          <MetricCard
             title="Churn %"
             value={`${metrics.churnPercentage}%`}
             icon={TrendingDown}
@@ -399,7 +407,7 @@ function App() {
             value={`${metrics.netGrowthPercentage}%`}
             icon={TrendingUp}
             iconColor="text-purple-600"
-          /> */}
+          />
         </div>
 
         {/* LTV Metric */}
@@ -413,9 +421,9 @@ function App() {
         </div> */}
 
         {/* Trend Over Time */}
-        <div className="mb-8">
+        {/* <div className="mb-8">
           <UnifiedTrendChart data={trendData} />
-        </div>
+        </div> */}
 
         {/* Enrollment Trends */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">

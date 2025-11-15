@@ -5,7 +5,7 @@ export interface Student {
   phone?: string;
   activities: string[];
   activity?: string; // Single activity for this enrollment row
-  courseCategory?: string; // New field to track course category
+  courseCategories: string[]; // Student can have multiple categories
   enrollmentDate: Date;
   renewalDates: Date[]; 
   endDate?: Date;
@@ -24,12 +24,20 @@ export interface RenewalRecord {
   email?: string;
   phone?: string;
   activities: string;
-  courseCategory?: string; // New field to track course category
+  courseCategories: string[];
   renewalDate: Date | undefined;
   endDate?: Date;
   package?: string;
   fees: number;
   source: string;
+}
+
+export interface StudentWithLTV extends Student {
+  lifetimeValue: number;
+  studentId?: string;
+  renewalCount?: number;
+  source?: string;
+
 }
 
 export interface EnrollmentData {

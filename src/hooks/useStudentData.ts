@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { Student } from '../types/Student';
 import { RenewalRecord } from '../types/Student';
 import { googleSheetsService } from '../services/googleSheetsApi';
+import { UnifiedDataProcessor } from '../utils/unifiedDataProcessor';
 
 
 export const useStudentData = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [renewalRecords, setRenewalRecords] = useState<RenewalRecord[]>([]);
+  const [multipleActivitiesStudents, setMultipleActivitiesStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,8 +28,9 @@ export const useStudentData = () => {
       console.log('🔑 API key found, fetching real data...');
       const { enrollmentData, renewalData } = await googleSheetsService.fetchBothSheets();
       const {parsedStudents, renewalRecords} = googleSheetsService.parseStudentData(enrollmentData, renewalData);
-      
+      const mergedStudents = UnifiedDataProcessor.mergeStudentRecords(parsedStudents);
       console.log(`✅ Data fetch complete: ${parsedStudents.length} students processed`);
+      setMultipleActivitiesStudents(mergedStudents);
       setStudents(parsedStudents);
       setRenewalRecords(renewalRecords);
       
@@ -47,7 +50,7 @@ export const useStudentData = () => {
     fetchData();
   }, []);
 
-  return { students, renewalRecords,loading, error, refetch: fetchData };
+  return { students, renewalRecords, multipleActivitiesStudents,loading, error, refetch: fetchData };
 };
 
 // Mock data for development
@@ -86,7 +89,7 @@ const getMockData = (): Student[] => {
       phone: `+1-555-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`,
       activities: [activity],
       activity: `INMOCK${courseCode}01-${courseCode}-MOCK-${i}`,
-      courseCategory: activity,
+      courseCategories: [courseCode],
       enrollmentDate,
       endDate,
       renewalDates: hasRenewal ? [new Date(enrollmentDate.getTime() + Math.random() * 365 * 24 * 60 * 60 * 1000)] : [],

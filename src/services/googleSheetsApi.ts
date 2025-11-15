@@ -192,7 +192,7 @@ export class GoogleSheetsService {
         notes: row[19] || undefined,
         package: row[5] || undefined,
         source,
-        courseCategory,
+        courseCategories: [courseCategory],
       });
     }
 
@@ -224,7 +224,7 @@ export class GoogleSheetsService {
         email: row[1] || undefined,
         phone: row[4] || undefined,
         package: row[5] || undefined,
-        courseCategory,
+        courseCategories:[courseCategory],
       });
 
       if (!renewalDate) {

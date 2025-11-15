@@ -49,13 +49,7 @@ export interface Student {
   notes?: string;
   package?: string;
 }
-export interface StudentWithLTV extends Student {
-  lifetimeValue: number;
-  studentId?: string;
-  renewalCount?: number;
-  source?: string;
 
-}
 
 export interface TrendData {
   month: string;

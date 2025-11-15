@@ -1,7 +1,6 @@
 import React from 'react';
 import { X, Mail, Phone, Calendar, Package, DollarSign, Hash, IndianRupee } from 'lucide-react';
 import { format, isValid } from 'date-fns';
-import { StudentWithLTV } from '../types/UnifiedTypes';
 import { RenewalRecord } from '../types/Student';
 
 interface UnifiedStudentModalProps {
@@ -127,7 +126,9 @@ export const RenewalModal: React.FC<UnifiedStudentModalProps> = ({
                                                 </div>
                                                 <p className="text-sm text-gray-600">
                                                     {student.activities}
-                                                    {student.courseCategory && ` (${student.courseCategory})`}
+                                                    {student.courseCategories && student.courseCategories.length > 0 && (
+                                                        <> • Categories: {student.courseCategories.join(', ')}</>
+                                                    )}
                                                 </p>
                                             </div>
                                         </div>
