@@ -258,7 +258,7 @@ function App() {
         <div className="mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
-              Unified Student Analytics Dashboard
+              Student Analytics Dashboard
             </h1>
             <p className="text-gray-600 mt-2">
               Comprehensive view of enrollments, renewals, churn, and student lifecycle metrics
