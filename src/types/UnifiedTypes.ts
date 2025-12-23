@@ -30,25 +30,7 @@ export interface UnifiedMetrics {
   netGrowthPercentage: number;
   lifetimeValue: number;
 }
-export interface Student {
-  id: string;
-  name: string;
-  email?: string;
-  phone?: string;
-  activities: string[];
-  activity?: string; // Single activity for this enrollment row
-  enrollmentDate: Date;
-  enrolledEndDate?: Date;
-  enrolledFees?: number;
-  courseCategory?: string; // New field to track course category
-  renewalDates: Date[]; 
-  endDate?: Date;
-  isActive: boolean;
-  isStrikeOff: boolean;
-  fees?: number;
-  notes?: string;
-  package?: string;
-}
+
 
 
 export interface TrendData {

@@ -27,7 +27,7 @@ import { DateRange } from './types/UnifiedTypes';
 import { subYears } from 'date-fns';
 import { RenewalModal } from './components/RenewalModal';
 import { CourseCategoryFilter } from './components/CourseCategoryFilter';
-import { RenewalRecord ,StudentWithLTV,} from './types/Student';
+import { RenewalRecord, StudentWithLTV, } from './types/Student';
 
 function App() {
   const { students, renewalRecords, multipleActivitiesStudents, loading, error, refetch } = useStudentData();
@@ -110,9 +110,9 @@ function App() {
 
     const metrics = UnifiedDataProcessor.calculateUnifiedMetrics(filteredStudents, filteredRenewalRecords, dateRange);
     const monthlyData = UnifiedDataProcessor.calculateMonthlyTrends(filteredStudents, filteredRenewalRecords, dateRange);
-    const trendData = UnifiedDataProcessor.calculateTrendData(filteredStudents, filteredRenewalRecords,dateRange);
+    const trendData = UnifiedDataProcessor.calculateTrendData(filteredStudents, filteredRenewalRecords, dateRange);
     const topCourseCategories = UnifiedDataProcessor.getCourseCategoryEnrollments(filteredStudents, filteredRenewalRecords, dateRange).slice(0, 13);
-    const multipleStudents = UnifiedDataProcessor.getMultiActivityStudents(filteredMultipleActivitiesStudents, dateRange);
+    const multipleStudents = UnifiedDataProcessor.getMultiActivityStudents(filteredMultipleActivitiesStudents, filteredRenewalRecords, dateRange);
     const highChurnCourseCategories = UnifiedDataProcessor.getCourseCategoryChurnRates(filteredStudents, dateRange).slice(0, 13);
 
     // Chart data
@@ -165,7 +165,7 @@ function App() {
       datasets: [
         {
           data: [
-            metrics.newEnrollments - 2*multipleStudents.length,
+            metrics.newEnrollments - 2 * multipleStudents.length,
             multipleStudents.length
           ],
           backgroundColor: ['#94a3b8', '#3b82f6'],
@@ -186,8 +186,8 @@ function App() {
       multiActivityData
     };
   }, [filteredData, dateRange]);
-  
-  
+
+
   const openModal = (title: string, studentList: StudentWithLTV[]) => {
     setModalState({
       isOpen: true,
@@ -350,7 +350,7 @@ function App() {
           onRefresh={refetch}
         />
 
-      
+
 
         {/* Primary Metrics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">
@@ -393,6 +393,14 @@ function App() {
             description="Students whose subscription has expired but are still within the 45-day grace period for renewal."
             iconColor="text-orange-600"
             onClick={() => openModal('In Grace Period', UnifiedDataProcessor.getInGraceStudents(filteredData.filteredStudents, dateRange))}
+          />
+          <ClickableMetricCard
+            title="Active Students"
+            value={UnifiedDataProcessor.getActiveStudentsInDateRange(filteredData.filteredStudents, filteredData.filteredRenewalRecords, dateRange).length.toLocaleString()}
+            icon={Users}
+            description="Students with an active subscription or within their grace period, whose subscription end date falls within the selected date range."
+            iconColor="text-green-600"
+            onClick={() => openModal('Active Students', UnifiedDataProcessor.getActiveStudentsInDateRange(filteredData.filteredStudents, filteredData.filteredRenewalRecords, dateRange))}
           />
           <ClickableMetricCard
             title="Multi-Course Students"

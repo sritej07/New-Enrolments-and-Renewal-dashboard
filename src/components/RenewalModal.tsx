@@ -103,88 +103,96 @@ export const RenewalModal: React.FC<UnifiedStudentModalProps> = ({
                     ) : (
                         <div className="p-6">
                             <div className="grid gap-4">
-                                {students.map((student) => (
-                                    <div
-                                        key={student.id}
-                                        className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
-                                    >
-                                        <div className="flex items-start justify-between mb-3">
-                                            <div>
-                                                <div className="flex items-center space-x-2">
-                                                    <h3 className="font-medium text-gray-900">{student.name}</h3>
-                                                    {student.id && (
-                                                        <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">
-                                                            <Hash size={12} className="mr-1" />
-                                                            {student.id}
-                                                        </span>
-                                                    )}
-                                                    {student.source && (
-                                                        <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-700">
-                                                            {student.source}
-                                                        </span>
-                                                    )}
+                                {students
+                                    .slice()
+                                    .sort((a, b) => {
+                                        // Sort by renewalDate descending (newest first)
+                                        const dateA = a.renewalDate ? new Date(a.renewalDate).getTime() : 0;
+                                        const dateB = b.renewalDate ? new Date(b.renewalDate).getTime() : 0;
+                                        return dateB - dateA;
+                                    })
+                                    .map((student) => (
+                                        <div
+                                            key={student.id}
+                                            className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                                        >
+                                            <div className="flex items-start justify-between mb-3">
+                                                <div>
+                                                    <div className="flex items-center space-x-2">
+                                                        <h3 className="font-medium text-gray-900">{student.name}</h3>
+                                                        {student.id && (
+                                                            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">
+                                                                <Hash size={12} className="mr-1" />
+                                                                {student.id}
+                                                            </span>
+                                                        )}
+                                                        {student.source && (
+                                                            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-700">
+                                                                {student.source}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-sm text-gray-600">
+                                                        {student.activities}
+                                                        {student.courseCategories && student.courseCategories.length > 0 && (
+                                                            <> • Categories: {student.courseCategories.join(', ')}</>
+                                                        )}
+                                                    </p>
                                                 </div>
-                                                <p className="text-sm text-gray-600">
-                                                    {student.activities}
-                                                    {student.courseCategories && student.courseCategories.length > 0 && (
-                                                        <> • Categories: {student.courseCategories.join(', ')}</>
-                                                    )}
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-                                            {student.email && (
-                                                <div className="flex items-center space-x-2">
-                                                    <Mail size={16} className="text-gray-400" />
-                                                    <span className="text-gray-600">{student.email}</span>
-                                                </div>
-                                            )}
-
-                                            {student.phone && (
-                                                <div className="flex items-center space-x-2">
-                                                    <Phone size={16} className="text-gray-400" />
-                                                    <span className="text-gray-600">{student.phone}</span>
-                                                </div>
-                                            )}
-
-                                            {student.package && (
-                                                <div className="flex items-center space-x-2">
-                                                    <Package size={16} className="text-gray-400" />
-                                                    <span className="text-gray-600">{student.package}</span>
-                                                </div>
-                                            )}
-
-                                            {student.renewalDate && (
-                                                <div className="flex items-center space-x-2">
-                                                    <Calendar size={16} className="text-green-400" />
-                                                    <span className="text-gray-600">
-                                                        {student.source === 'RazorpayEnrollments' || student.source === 'FormResponses1' || student.source === 'OldFormResponses1' ? 'Enrolled Date: ' : 'Renewal Date: '}
-                                                        {formatDate(student.renewalDate)}
-                                                    </span>
-                                                </div>
-                                            )}
-
-                                            {student.endDate && (
-                                                <div className="flex items-center space-x-2">
-                                                    <Calendar size={16} className="text-red-400" />
-                                                    <span className="text-gray-600">
-                                                        Expires: {formatDate(student.endDate)}
-                                                    </span>
-                                                </div>
-                                            )}
-
-                                            <div className="flex items-center space-x-2">
-                                                <IndianRupee size={16} className="text-green-400" />
-                                                <span className="text-gray-600">
-                                                    Fee: ₹{student.fees.toLocaleString('en-IN')}
-                                                </span>
                                             </div>
 
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                                                {student.email && (
+                                                    <div className="flex items-center space-x-2">
+                                                        <Mail size={16} className="text-gray-400" />
+                                                        <span className="text-gray-600">{student.email}</span>
+                                                    </div>
+                                                )}
 
+                                                {student.phone && (
+                                                    <div className="flex items-center space-x-2">
+                                                        <Phone size={16} className="text-gray-400" />
+                                                        <span className="text-gray-600">{student.phone}</span>
+                                                    </div>
+                                                )}
+
+                                                {student.package && (
+                                                    <div className="flex items-center space-x-2">
+                                                        <Package size={16} className="text-gray-400" />
+                                                        <span className="text-gray-600">{student.package}</span>
+                                                    </div>
+                                                )}
+
+                                                {student.renewalDate && (
+                                                    <div className="flex items-center space-x-2">
+                                                        <Calendar size={16} className="text-green-400" />
+                                                        <span className="text-gray-600">
+                                                            {student.source === 'RazorpayEnrollments' || student.source === 'FormResponses1' || student.source === 'OldFormResponses1' ? 'Enrolled Date: ' : 'Renewal Date: '}
+                                                            {formatDate(student.renewalDate)}
+                                                        </span>
+                                                    </div>
+                                                )}
+
+                                                {student.endDate && (
+                                                    <div className="flex items-center space-x-2">
+                                                        <Calendar size={16} className="text-red-400" />
+                                                        <span className="text-gray-600">
+                                                            Expires: {formatDate(student.endDate)}
+                                                        </span>
+                                                    </div>
+                                                )}
+
+                                                <div className="flex items-center space-x-2">
+                                                    <IndianRupee size={16} className="text-green-400" />
+                                                    <span className="text-gray-600">
+                                                        Fee: ₹{student.fees.toLocaleString('en-IN')}
+                                                    </span>
+                                                </div>
+
+
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    ))}
                             </div>
                         </div>
                     )}
